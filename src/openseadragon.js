@@ -2903,6 +2903,12 @@ function OpenSeadragon( options ){
         // expose as commonjs module
         module.exports = factory();
     } else {
+        if (!root) {
+            root = typeof window === 'object' && window;
+            if (!root) {
+                console.error("OpenSeadragon must run in browser environment!");
+            }
+        }
         // expose as window.OpenSeadragon
         root.OpenSeadragon = factory();
     }
