@@ -1577,7 +1577,7 @@ $.Viewport.prototype = {
         $.console.assert(this.viewer,
             "[Viewport.windowToImageCoordinates] the viewport must have a viewer.");
         var viewerCoordinates = pixel.minus(
-                $.getElementPosition(this.viewer.element));
+                $.getElementPosition(this.viewer.container));
         return this.viewerElementToImageCoordinates(viewerCoordinates);
     },
 
@@ -1592,7 +1592,7 @@ $.Viewport.prototype = {
             "[Viewport.imageToWindowCoordinates] the viewport must have a viewer.");
         var viewerCoordinates = this.imageToViewerElementCoordinates(pixel);
         return viewerCoordinates.plus(
-                $.getElementPosition(this.viewer.element));
+                $.getElementPosition(this.viewer.container));
     },
 
     /**
@@ -1652,7 +1652,7 @@ $.Viewport.prototype = {
         $.console.assert(this.viewer,
             "[Viewport.windowToViewportCoordinates] the viewport must have a viewer.");
         var viewerCoordinates = pixel.minus(
-                $.getElementPosition(this.viewer.element));
+                $.getElementPosition(this.viewer.container));
         return this.viewerElementToViewportCoordinates(viewerCoordinates);
     },
 
@@ -1666,7 +1666,7 @@ $.Viewport.prototype = {
             "[Viewport.viewportToWindowCoordinates] the viewport must have a viewer.");
         var viewerCoordinates = this.viewportToViewerElementCoordinates(point);
         return viewerCoordinates.plus(
-                $.getElementPosition(this.viewer.element));
+                $.getElementPosition(this.viewer.container));
     },
 
     /**
