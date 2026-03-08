@@ -2056,9 +2056,9 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
             if (increment === 0) {
                 tile.loading = false;
                 tile.loaded = true;
-                tile.hasTransparency = _this.source.hasTransparency(
-                    tile.context2D, tile.getUrl(), tile.ajaxHeaders, tile.postData
-                );
+                // tile.hasTransparency = _this.source.hasTransparency(                     // DAO251: removed hasTransparency flag
+                //     tile.context2D, tile.getUrl(), tile.ajaxHeaders, tile.postData
+                // );
                 if (!tile.context2D) {
                     _this._tileCache.cacheTile({
                         data: data,

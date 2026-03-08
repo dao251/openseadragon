@@ -726,7 +726,8 @@ $.TileSource.prototype = {
      * @returns {boolean} true if the image has transparency
      */
     hasTransparency: function(context2D, url, ajaxHeaders, post) {
-        return !!context2D || url.match('.png');
+        return true; // DAO251: there is no way to determine if tile images can be transparent here, so return true to be on safe side. Need to remove
+        // return !!context2D || url.match('.png');
     },
 
     /**

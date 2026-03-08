@@ -278,8 +278,9 @@ class CanvasDrawer extends OpenSeadragon.DrawerBase{
         if (tile) {
             useSketch = tiledImage.opacity < 1 ||
                 (tiledImage.compositeOperation && tiledImage.compositeOperation !== 'source-over') ||
-                (!tiledImage._isBottomItem() &&
-                tiledImage.source.hasTransparency(tile.context2D, tile.getUrl(), tile.ajaxHeaders, tile.postData));
+                (!tiledImage._isBottomItem() // &&
+                // tiledImage.source.hasTransparency(tile.context2D, tile.getUrl(), tile.ajaxHeaders, tile.postData) //DAO251: always returns true,
+                );
         }
 
         var sketchScale;
@@ -585,7 +586,8 @@ class CanvasDrawer extends OpenSeadragon.DrawerBase{
         //ie its done fading or fading is turned off, and if we are drawing
         //an image with an alpha channel, then the only way
         //to avoid seeing the tile underneath is to clear the rectangle
-        if (context.globalAlpha === 1 && tile.hasTransparency) {
+        if (context.globalAlpha === 1) {            //DAO251: removed TileSource.hasTransparency check
+        //if (context.globalAlpha === 1 && tile.hasTransparency) {
             if (shouldRoundPositionAndSize) {
                 // Round to the nearest whole pixel so we don't get seams from overlap.
                 position.x = Math.round(position.x);

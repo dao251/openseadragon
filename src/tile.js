@@ -229,7 +229,8 @@ $.Tile = function(level, x, y, bounds, exists, url, context2D, loadWithAjax, aja
      * @member {Boolean} hasTransparency true if tile contains transparency for correct rendering
      * @memberof OpenSeadragon.Tile#
      */
-    this.hasTransparency = false;
+    this.hasTransparency = true;        //DAO251 : remove hasTransparency flag ckecks
+    // this.hasTransparency = false;
 
     /**
      * Whether this tile is currently being drawn.
@@ -273,12 +274,13 @@ $.Tile.prototype = {
         return this.level + "/" + this.x + "_" + this.y;
     },
 
+    // DAO251: just removed 'deprecated'(?!) private(!) method that nobody calls anyway
     // private
-    _hasTransparencyChannel: function() {
-        console.warn("Tile.prototype._hasTransparencyChannel() has been " +
-            "deprecated and will be removed in the future. Use TileSource.prototype.hasTransparency() instead.");
-        return !!this.context2D || this.getUrl().match('.png');
-    },
+    // _hasTransparencyChannel: function() {
+    //     console.warn("Tile.prototype._hasTransparencyChannel() has been " +
+    //         "deprecated and will be removed in the future. Use TileSource.prototype.hasTransparency() instead.");
+    //     return !!this.context2D || this.getUrl().match('.png');
+    // },
 
     /**
      * The Image object for this tile.

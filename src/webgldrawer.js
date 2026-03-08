@@ -305,7 +305,8 @@
                     if(tilesToDraw.length === 0 || tiledImage.getOpacity() === 0){
                         return;
                     }
-                    let firstTile = tilesToDraw[0];
+                    // DAO251: removed hasTransparency, firstTile variable only used to check that flag
+                    // let firstTile = tilesToDraw[0];
 
                     let useContext2dPipeline = ( tiledImage.compositeOperation ||
                         this.viewer.compositeOperation ||
@@ -314,7 +315,8 @@
                         tiledImage.debugMode
                     );
 
-                    let useTwoPassRendering = useContext2dPipeline || (tiledImage.opacity < 1) || firstTile.hasTransparency;
+                    let useTwoPassRendering = useContext2dPipeline || (tiledImage.opacity < 1); // DAO251: removed hasTransparency flag
+                    // let useTwoPassRendering = useContext2dPipeline || (tiledImage.opacity < 1) || firstTile.hasTransparency;
 
                     // using the context2d pipeline requires a clean rendering (back) buffer to start
                     if(useContext2dPipeline){
