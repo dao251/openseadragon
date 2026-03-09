@@ -754,77 +754,78 @@ $.TileSource.prototype = {
      *   this image job may take to complete.
      * @param {string} [context.errorMsg] @private - The final error message, default null (set by finish).
      */
-    downloadTileStart: function (context) {
-        var dataStore = context.userData,
-            image = new Image();
+    //DAO251: moved downloadTileStart functionality back to ImageLoader class
+    // downloadTileStart: function (context) {
+    //     var dataStore = context.userData,
+    //         image = new Image();
 
-        dataStore.image = image;
-        dataStore.request = null;
+    //     dataStore.image = image;
+    //     dataStore.request = null;
 
-        var finish = function(error) {
-            if (!image) {
-                context.finish(null, dataStore.request, "Image load failed: undefined Image instance.");
-                return;
-            }
-            image.onload = image.onerror = image.onabort = null;
-            context.finish(error ? null : image, dataStore.request, error);
-        };
-        image.onload = function () {
-            finish();
-        };
-        image.onabort = image.onerror = function() {
-            finish("Image load aborted.");
-        };
+    //     var finish = function(error) {
+    //         if (!image) {
+    //             context.finish(null, dataStore.request, "Image load failed: undefined Image instance.");
+    //             return;
+    //         }
+    //         image.onload = image.onerror = image.onabort = null;
+    //         context.finish(error ? null : image, dataStore.request, error);
+    //     };
+    //     image.onload = function () {
+    //         finish();
+    //     };
+    //     image.onabort = image.onerror = function() {
+    //         finish("Image load aborted.");
+    //     };
 
-        // Load the tile with an AJAX request if the loadWithAjax option is
-        // set. Otherwise load the image by setting the source property of the image object.
-        if (context.loadWithAjax) {
-            dataStore.request = $.makeAjaxRequest({
-                url: context.src,
-                withCredentials: context.ajaxWithCredentials,
-                headers: context.ajaxHeaders,
-                responseType: "arraybuffer",
-                postData: context.postData,
-                success: function(request) {
-                    var blb;
-                    // Make the raw data into a blob.
-                    // BlobBuilder fallback adapted from
-                    // http://stackoverflow.com/questions/15293694/blob-constructor-browser-compatibility
-                    try {
-                        blb = new window.Blob([request.response]);
-                    } catch (e) {
-                        var BlobBuilder = (
-                            window.BlobBuilder ||
-                            window.WebKitBlobBuilder ||
-                            window.MozBlobBuilder ||
-                            window.MSBlobBuilder
-                        );
-                        if (e.name === 'TypeError' && BlobBuilder) {
-                            var bb = new BlobBuilder();
-                            bb.append(request.response);
-                            blb = bb.getBlob();
-                        }
-                    }
-                    // If the blob is empty for some reason consider the image load a failure.
-                    if (blb.size === 0) {
-                        finish("Empty image response.");
-                    } else {
-                        // Create a URL for the blob data and make it the source of the image object.
-                        // This will still trigger Image.onload to indicate a successful tile load.
-                        image.src = (window.URL || window.webkitURL).createObjectURL(blb);
-                    }
-                },
-                error: function(request) {
-                    finish("Image load aborted - XHR error");
-                }
-            });
-        } else {
-            if (context.crossOriginPolicy !== false) {
-                image.crossOrigin = context.crossOriginPolicy;
-            }
-            image.src = context.src;
-        }
-    },
+    //     // Load the tile with an AJAX request if the loadWithAjax option is
+    //     // set. Otherwise load the image by setting the source property of the image object.
+    //     if (context.loadWithAjax) {
+    //         dataStore.request = $.makeAjaxRequest({
+    //             url: context.src,
+    //             withCredentials: context.ajaxWithCredentials,
+    //             headers: context.ajaxHeaders,
+    //             responseType: "arraybuffer",
+    //             postData: context.postData,
+    //             success: function(request) {
+    //                 var blb;
+    //                 // Make the raw data into a blob.
+    //                 // BlobBuilder fallback adapted from
+    //                 // http://stackoverflow.com/questions/15293694/blob-constructor-browser-compatibility
+    //                 try {
+    //                     blb = new window.Blob([request.response]);
+    //                 } catch (e) {
+    //                     var BlobBuilder = (
+    //                         window.BlobBuilder ||
+    //                         window.WebKitBlobBuilder ||
+    //                         window.MozBlobBuilder ||
+    //                         window.MSBlobBuilder
+    //                     );
+    //                     if (e.name === 'TypeError' && BlobBuilder) {
+    //                         var bb = new BlobBuilder();
+    //                         bb.append(request.response);
+    //                         blb = bb.getBlob();
+    //                     }
+    //                 }
+    //                 // If the blob is empty for some reason consider the image load a failure.
+    //                 if (blb.size === 0) {
+    //                     finish("Empty image response.");
+    //                 } else {
+    //                     // Create a URL for the blob data and make it the source of the image object.
+    //                     // This will still trigger Image.onload to indicate a successful tile load.
+    //                     image.src = (window.URL || window.webkitURL).createObjectURL(blb);
+    //                 }
+    //             },
+    //             error: function(request) {
+    //                 finish("Image load aborted - XHR error");
+    //             }
+    //         });
+    //     } else {
+    //         if (context.crossOriginPolicy !== false) {
+    //             image.crossOrigin = context.crossOriginPolicy;
+    //         }
+    //         image.src = context.src;
+    //     }
+    // },
 
     /**
      * Provide means of aborting the execution.
@@ -832,15 +833,16 @@ $.TileSource.prototype = {
      * @param {ImageJob} context job, the same object as with downloadTileStart(..)
      * @param {*} [context.userData] - Empty object to attach (and mainly read) your own data.
      */
-    downloadTileAbort: function (context) {
-        if (context.userData.request) {
-            context.userData.request.abort();
-        }
-        var image = context.userData.image;
-        if (context.userData.image) {
-            image.onload = image.onerror = image.onabort = null;
-        }
-    },
+    //DAO251: moved downloadTileAbort functionality back to ImageLoader.
+    // downloadTileAbort: function (context) {
+    //     if (context.userData.request) {
+    //         context.userData.request.abort();
+    //     }
+    //     var image = context.userData.image;
+    //     if (context.userData.image) {
+    //         image.onload = image.onerror = image.onabort = null;
+    //     }
+    // },
 
     /**
      * Create cache object from the result of the download process. The
