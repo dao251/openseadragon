@@ -102,37 +102,16 @@ $.ImageJob.prototype = {
         }, this.timeout);
 
         this.abort = () => {                        // DAO251: use arrow syntax for 'this'
-            // DAO251: moved downloadTileAbort from TileSource class
-
             this.abortController.abort();
-
-            // if (this.userData.request) {
-            //     this.userData.request.abort();
-            // }
-            // var image = this.userData.image;
-            // if (image) {
-            //     image.onload = image.onerror = image.onabort = null;
-            // }
         };
 
-        //DAO251: moved downloadTileStart functionality back here: downloadTileStart: function (context) {
         var dataStore = this.userData,
             image = new Image();
 
         dataStore.image = image;
         dataStore.request = null;
 
-        var finish = (error) => { //DAO251: use arrow syntax for 'this'
-            // if(error){
-            //     this.abortController.abort();
-            // }
-
-            // if (!image) {
-            //     this.finish(null, dataStore.request, "Image load failed: undefined Image instance.");
-            //     return;
-            // }
-
-            // image.onload = image.onerror = image.onabort = null;
+        var finish = (error) => {
             this.finish(error ? null : image, dataStore.request, error);
         };
 
@@ -141,11 +120,8 @@ $.ImageJob.prototype = {
         };
 
         image.onabort = image.onerror = function() {
-            finish("Image load aborted.");
+            finish("Image load aborted");
         };
-
-        // Load the tile with an AJAX request if the loadWithAjax option is
-        // set. Otherwise load the image by setting the source property of the image object.
 
         const fetchOptions = { signal: this.abortController.signal};
 
@@ -161,37 +137,19 @@ $.ImageJob.prototype = {
         fetch(this.src, fetchOptions)
         .then(response => {
             if (!response.ok) {
-                throw new Error('HTTP error');
+                throw new Error('Response not OK');
             }
-            return response.arrayBuffer();
+            return response.blob();
         })
-        .then(buffer => {
-            let blb;
-            try {
-                blb = new Blob([buffer]);
-            } catch (e) {
-                const BlobBuilder = (
-                    window.BlobBuilder ||
-                    window.WebKitBlobBuilder ||
-                    window.MozBlobBuilder ||
-                    window.MSBlobBuilder
-                );
-                if (e.name === 'TypeError' && BlobBuilder) {
-                    const bb = new BlobBuilder();
-                    bb.append(buffer);
-                    blb = bb.getBlob();
-                }
+        .then( blob => {
+            if( blob.size === 0 ){
+                throw new Error('Empty image response');
             }
-            if (blb.size === 0) {
-                finish('Empty image response.');
-            } else {
-                // Create a URL for the blob data and make it the source of the image object.
-                // This will still trigger Image.onload to indicate a successful tile load.
-                image.src = URL.createObjectURL(blb);
-            }
+            var objectURL = URL.createObjectURL(blob);
+            image.src = objectURL;
         })
-        .catch(() => {
-            finish('Image load aborted - Fetch error');
+        .catch((e) => {
+            finish(`Image load aborted - Fetch error: ${e.message || e}`);
         });
     },
 
