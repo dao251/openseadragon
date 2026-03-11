@@ -25,7 +25,8 @@
         // debugMode: true,
         id: "contentDiv",
         prefixUrl: "../../build/openseadragon/images/",
-        tileSources: "http://wellcomelibrary.org/iiif-img/b11768265-0/a6801943-b8b4-4674-908c-7d5b27e70569/info.json",
+        //DAO251: wellcomelibrary.org IIIF image doesn't work because of CORS, so use DZI (like v6 does)
+        tileSources: "https://openseadragon.github.io/example-images/highsmith/highsmith.dzi",
         showNavigator:true,
         timeout: 1000 * 60 * 60 * 24
     });

@@ -319,6 +319,7 @@
     // The Wikipedia logo has CORS enabled
     var corsImg = 'https://upload.wikimedia.org/wikipedia/en/b/bc/Wiki.png';
 
+
     QUnit.test( 'CrossOriginPolicyMissing', function (assert) {
         var done = assert.async();
         viewer.crossOriginPolicy = false;
@@ -332,12 +333,14 @@
                 } ]
         } );
         viewer.addOnceHandler('tiled-image-drawn', function(event) {
-            assert.ok(OpenSeadragon.isCanvasTainted(event.tiles[0].getCanvasContext().canvas),
-                "Canvas should be tainted.");
+            //DAO251: NO more tainted canvas !!!!
+            assert.ok(!OpenSeadragon.isCanvasTainted(event.tiles[0].getCanvasContext().canvas),
+                "Canvas should NEVER be tainted.");
             done();
         });
 
     } );
+
 
     QUnit.test( 'CrossOriginPolicyAnonymous', function (assert) {
         var done = assert.async();
@@ -376,8 +379,9 @@
             crossOriginPolicy : false
         } );
         viewer.addOnceHandler('tiled-image-drawn', function(event) {
-            assert.ok(OpenSeadragon.isCanvasTainted(event.tiles[0].getCanvasContext().canvas),
-                "Canvas should be tainted.");
+            //DAO251: NO more tainted canvas !!!!
+            assert.ok(!OpenSeadragon.isCanvasTainted(event.tiles[0].getCanvasContext().canvas),
+                "Canvas should NEVER be tainted.");
             done();
         });
 

@@ -60,7 +60,8 @@
             viewer = null;
         }
     });
-
+//DAO251: no more AJAX so no more XMLHttpRequest objects in the system WHAT TO DO WITH THEM ???
+/*
     QUnit.test('tile-loaded event includes AJAX request object', function(assert) {
         var done = assert.async();
         var tileLoaded = function tileLoaded(evt) {
@@ -110,7 +111,7 @@
         viewer.addHandler('tile-load-failed', tileLoadFailed);
         viewer.open(brokenTileSource);
     });
-
+*/
     QUnit.test('Headers can be set per-tile', function(assert) {
         var done = assert.async();
         var tileLoaded = function tileLoaded(evt) {

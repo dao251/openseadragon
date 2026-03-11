@@ -94,99 +94,105 @@ $.ImageJob.prototype = {
     start: function() {
         this.tries++;
 
+        this.abortController = new AbortController();
+
         this.jobId = window.setTimeout(() => {      // DAO251: use arrow syntax for 'this'
+            this.abortController.abort();
             this.finish(null, null, "Image load exceeded timeout (" + this.timeout + " ms)");
         }, this.timeout);
 
         this.abort = () => {                        // DAO251: use arrow syntax for 'this'
-            // DAO251: moved downloadTileAbort from TileSource class : downloadTileAbort: function (context) {
-            if (this.userData.request) {
-                this.userData.request.abort();
-            }
-            var image = this.userData.image;
-            if (image) {
-                image.onload = image.onerror = image.onabort = null;
-            }
-            // DAO251: moved downloadTileAbort: },
+            // DAO251: moved downloadTileAbort from TileSource class
 
-            if (typeof this.abort === "function") {
-                this.abort();
-            }
+            this.abortController.abort();
+
+            // if (this.userData.request) {
+            //     this.userData.request.abort();
+            // }
+            // var image = this.userData.image;
+            // if (image) {
+            //     image.onload = image.onerror = image.onabort = null;
+            // }
         };
 
         //DAO251: moved downloadTileStart functionality back here: downloadTileStart: function (context) {
-            var dataStore = this.userData,
-                image = new Image();
+        var dataStore = this.userData,
+            image = new Image();
 
-            dataStore.image = image;
-            dataStore.request = null;
+        dataStore.image = image;
+        dataStore.request = null;
 
-            var finish = (error) => { //DAO251: use arrow syntax for 'this'
-                if (!image) {
-                    this.finish(null, dataStore.request, "Image load failed: undefined Image instance.");
-                    return;
-                }
-                image.onload = image.onerror = image.onabort = null;
-                this.finish(error ? null : image, dataStore.request, error);
-            };
+        var finish = (error) => { //DAO251: use arrow syntax for 'this'
+            // if(error){
+            //     this.abortController.abort();
+            // }
 
-            image.onload = function () {
-                finish();
-            };
+            // if (!image) {
+            //     this.finish(null, dataStore.request, "Image load failed: undefined Image instance.");
+            //     return;
+            // }
 
-            image.onabort = image.onerror = function() {
-                finish("Image load aborted.");
-            };
+            // image.onload = image.onerror = image.onabort = null;
+            this.finish(error ? null : image, dataStore.request, error);
+        };
 
-            // Load the tile with an AJAX request if the loadWithAjax option is
-            // set. Otherwise load the image by setting the source property of the image object.
+        image.onload = function () {
+            finish();
+        };
 
-            if (this.loadWithAjax) {
-            dataStore.request = $.makeAjaxRequest({
-                url: this.src,
-                withCredentials: this.ajaxWithCredentials,
-                headers: this.ajaxHeaders,
-                responseType: "arraybuffer",
-                postData: this.postData,
-                success: function(request) {
-                    var blb;
-                    // Make the raw data into a blob.
-                    // BlobBuilder fallback adapted from
-                    // http://stackoverflow.com/questions/15293694/blob-constructor-browser-compatibility
-                    try {
-                        blb = new window.Blob([request.response]);
-                    } catch (e) {
-                        var BlobBuilder = (
-                            window.BlobBuilder ||
-                            window.WebKitBlobBuilder ||
-                            window.MozBlobBuilder ||
-                            window.MSBlobBuilder
-                        );
-                        if (e.name === 'TypeError' && BlobBuilder) {
-                            var bb = new BlobBuilder();
-                            bb.append(request.response);
-                            blb = bb.getBlob();
-                        }
-                    }
-                    // If the blob is empty for some reason consider the image load a failure.
-                    if (blb.size === 0) {
-                        finish("Empty image response.");
-                    } else {
-                        // Create a URL for the blob data and make it the source of the image object.
-                        // This will still trigger Image.onload to indicate a successful tile load.
-                        image.src = (window.URL || window.webkitURL).createObjectURL(blb);
-                    }
-                },
-                error: function(request) {
-                    finish("Image load aborted - XHR error");
-                }
-            });
-            } else {
-                if (this.crossOriginPolicy !== false) {
-                    image.crossOrigin = this.crossOriginPolicy;
-                }
-                image.src = this.src;
+        image.onabort = image.onerror = function() {
+            finish("Image load aborted.");
+        };
+
+        // Load the tile with an AJAX request if the loadWithAjax option is
+        // set. Otherwise load the image by setting the source property of the image object.
+
+        const fetchOptions = { signal: this.abortController.signal};
+
+        if ( this.loadWithAjax ){
+            if (this.postData){
+                 fetchOptions.method = 'POST';
+                 fetchOptions.body = this.postData;
             }
+            fetchOptions.credentials = this.ajaxWithCredentials ? 'include' : 'same-origin';
+            fetchOptions.headers = this.ajaxHeaders;
+        }
+
+        fetch(this.src, fetchOptions)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('HTTP error');
+            }
+            return response.arrayBuffer();
+        })
+        .then(buffer => {
+            let blb;
+            try {
+                blb = new Blob([buffer]);
+            } catch (e) {
+                const BlobBuilder = (
+                    window.BlobBuilder ||
+                    window.WebKitBlobBuilder ||
+                    window.MozBlobBuilder ||
+                    window.MSBlobBuilder
+                );
+                if (e.name === 'TypeError' && BlobBuilder) {
+                    const bb = new BlobBuilder();
+                    bb.append(buffer);
+                    blb = bb.getBlob();
+                }
+            }
+            if (blb.size === 0) {
+                finish('Empty image response.');
+            } else {
+                // Create a URL for the blob data and make it the source of the image object.
+                // This will still trigger Image.onload to indicate a successful tile load.
+                image.src = URL.createObjectURL(blb);
+            }
+        })
+        .catch(() => {
+            finish('Image load aborted - Fetch error');
+        });
     },
 
     /**
