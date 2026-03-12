@@ -180,12 +180,28 @@
             }
         };
 
+    //DAO251:    JSON  stringify preventing circular reference errors
+    function jsonStringify(obj) {
+    const cache = new Set();
+    return JSON.stringify(obj, (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+            if (cache.has(value)) {
+                // Circular reference found, discard key
+                return;
+            }
+            // Store value in our collection
+            cache.add(value);
+        }
+        return value;
+    });
+}
+
     for ( var i in testLog ) {
         if ( testLog.hasOwnProperty( i ) && testLog[i].push ) {
             testConsole[i] = ( function ( arr ) {
                 return function () {
                     var args = Array.prototype.slice.call( arguments, 0 ); // Coerce to true Array
-                    arr.push( JSON.stringify( args ) ); // Store as JSON to avoid tedious array-equality tests
+                    arr.push( jsonStringify( args )); // Store as JSON to avoid tedious array-equality tests
                 };
             } )( testLog[i] );
 
