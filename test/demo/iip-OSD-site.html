@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OpenSeadragon Demo - IIIF Tiled</title>
+    <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
+    <!-- <script type="text/javascript" src='../lib/jquery-1.9.1.min.js'></script> -->
+    <style type="text/css">
+
+        .openseadragon {
+            width: 99vw;
+            height: 85vh;
+        }
+
+    </style>
+</head>
+<body>
+<div>
+    <p>IIP tile Source, AdvancedExample</p>
+    <p>https://openseadragon.github.io/examples/tilesource-iip/</p>
+</div>
+
+    <div id="advanced-example" class="openseadragon">
+         <!-- <div class="caption">96999 x 45667 pixel OME-TIFF<br/><i>Paul Felts</i><br/><a href="https://downloads.openmicroscopy.org/images/SVS/">OME-TIFF image repository</a><br/>(Creative Commons 4.0)</div> -->
+    </div>
+    <script type="text/javascript">
+        OpenSeadragon({
+            id:              "advanced-example",
+            prefixUrl: "../../build/openseadragon/images/",
+            // drawer:          "canvas",
+            visibilityRatio: 0.9,
+            showNavigator:   true,
+            tileSources:   {
+                iipsrv: "https://merovingio.c2rmf.cnrs.fr/fcgi-bin/iipsrv.fcgi",
+                image:  "77917.ome.tif",
+                format: "jpg",
+                transform:  {
+                    contrast: 1.5,
+                    twist: "[0,0,1;0,1,0;0.9,0,0.1]"
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>

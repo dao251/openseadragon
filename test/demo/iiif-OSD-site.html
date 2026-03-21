@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OpenSeadragon Demo - IIIF Tiled</title>
+    <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
+    <!-- <script type="text/javascript" src='../lib/jquery-1.9.1.min.js'></script> -->
+    <style type="text/css">
+
+        .openseadragon {
+            width: 800px;
+            height: 600px;
+        }
+
+    </style>
+</head>
+<body>
+<div>
+    <p>Default OpenSeadragon viewer from IIIF Tile Source.</p>
+    <p>https://openseadragon.github.io/examples/tilesource-iiif/</p>
+</div>
+
+    <div id="example-xmlhttprequest-for-info-json"
+         class="openseadragon"></div>
+        <script type="text/javascript">
+            OpenSeadragon({
+                id:            "example-xmlhttprequest-for-info-json",
+                prefixUrl: "../../build/openseadragon/images/",
+                drawer: 'canvas',
+                sequenceMode:  true,
+                tileSources:   [
+                    "https://libimages1.princeton.edu/loris/pudl0001%2F4609321%2Fs42%2F00000001.jp2/info.json",
+                    "https://libimages1.princeton.edu/loris/pudl0001%2F4609321%2Fs42%2F00000002.jp2/info.json",
+                    "https://libimages1.princeton.edu/loris/pudl0001%2F4609321%2Fs42%2F00000003.jp2/info.json",
+                    "https://libimages1.princeton.edu/loris/pudl0001%2F4609321%2Fs42%2F00000004.jp2/info.json",
+                    "https://libimages1.princeton.edu/loris/pudl0001%2F4609321%2Fs42%2F00000005.jp2/info.json",
+                    "https://libimages1.princeton.edu/loris/pudl0001%2F4609321%2Fs42%2F00000006.jp2/info.json",
+                    "https://libimages1.princeton.edu/loris/pudl0001%2F4609321%2Fs42%2F00000007.jp2/info.json"
+                ]
+            });
+        </script>
+
+</body>
+</html>
