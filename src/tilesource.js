@@ -93,6 +93,9 @@
  *      The maximum level to attempt to load.
  */
 $.TileSource = function( width, height, tileSize, tileOverlap, minLevel, maxLevel ) {
+
+    this.hash = Date.now().toString(16).concat( 1000 + Math.floor(Math.random() * 1000) );    //DAO251:  generate unique ID for this TileSource
+
     var _this = this;
 
     var args = arguments,
@@ -619,11 +622,134 @@ $.TileSource.prototype = {
      * @param {Number} level
      * @param {Number} x
      * @param {Number} y
-     * @returns {String|Function} url - A string for the url or a function that returns a url string.
+     * @returns {String|Function|Promise<String|Promise<Function>>}
+     *      An URL string or a function that returns an URL string.
+     *      may return a Promise (e.g. be asynchronous)
      * @throws {Error}
      */
     getTileUrl: function( level, x, y ) {
         throw new Error( "Method not implemented." );
+    },
+
+    /**
+     * Retrieving the fetch options for the tile.
+     * @function
+     * @param {Number} level
+     * @param {Number} x
+     * @param {Number} y
+     * @param {Boolean} _loadWithAjax  used only for default implementation, to provide bacward compatibility.
+     *      Should not be used when overloading.
+     * @returns {Object} User-defined options for the fetch. Default implementation returns standard Fetch API
+     *      fetch() options simulating OSD 'ajax' flags.
+     * @throws {Error}
+     */
+    getTileFetchOptions: function( level, x, y, _loadWithAjax = false ) {
+        const fetchOptions = {};
+        if ( _loadWithAjax ){
+            const postData = this.getTilePostData(level, x, y);
+            if (postData){
+                 fetchOptions.method = 'POST';
+                 fetchOptions.body = postData;
+            }
+            fetchOptions.credentials = this.ajaxWithCredentials ? 'include' : 'same-origin';
+            fetchOptions.headers = this.getTileAjaxHeaders(level, x, y);
+        }
+        return fetchOptions;
+    },
+
+    //DAO251: private 'static' helper method for the getTileImage below, merges two abort signals
+    __mergeSignals: (a, b) => {
+        if(!a){
+            return b;
+        }
+        if(!b){
+            return a;
+        }
+        const c = new AbortController();
+        if (a.aborted || b.aborted){
+                c.abort(a.reason || b.reason);
+        }
+        a.addEventListener('abort', () => c.abort(a.reason), { once: true });
+        b.addEventListener('abort', () => c.abort(b.reason), { once: true });
+        return c.signal;
+    },
+
+    //DAO251: protected _fetchImage (useful e.g. for proper ImageTileSource)
+    _fetchImage: function( url, fetchOptions ) {
+        //DAO251: default functionality provided for compatibility reasons
+        //  users can override and e.g. ignore signal and/or loadWithAjax parameters
+
+        const image = new Image(); // value to return
+
+        return fetch(url, fetchOptions)
+            .catch((e) => {
+                if( fetchOptions.mode && fetchOptions.mode.toLowerCase() === 'no-cors' ){
+                    throw e; // re-throw as this certainly was not CORS error.
+                }
+                // possible CORS error, so give it another chance by simulating opaque response (will lead to re-request in no-cors mode)
+                return {type: "opaque"};
+            })
+            .then(response => {
+                switch (response.type) {
+                    /* eslint-disable no-fallthrough */
+                    // Readable CORS/basic response
+                    case 'cors':
+                    case 'basic':
+                        if (!response.ok) {
+                            throw new Error(`HTTP error ${response.status}`);
+                        }
+                        return response.blob().then(blob => {
+                            if( blob.size === 0){
+                                throw new Error('empty response.blob');
+                            }
+                            //do we need to check we really got an image?
+                            const supportedTypes = ['image/apng', 'image/avif', 'image/gif', 'image/jpeg', 'image/png', 'image/webp'];
+                            if( !supportedTypes.includes(blob.type)){
+                                throw new Error(`unsupported MIME type: ${blob.type}`);
+                            }
+                            image.src = URL.createObjectURL(blob);
+                            return image;
+                        });
+                    // Opaque or opaqueredirect:
+                    // 1) mark the image as non-CORS (any canvas will be tainted)
+                    // 2) response.blob() is most probably unusable, we do not even try it.
+                    //      Actual fetch will be done by browser using original url (non-cors mode)
+                    case 'opaque':
+                    case 'opaqueredirect':
+                        image._nonCors = true;
+                        image.src = url;
+                        return image;
+                    default:
+                        throw new Error(`Unexpected response type: "${response.type}"`); // should never happen
+                    /* eslint-enable no-fallthrough */
+                }
+            });
+    },
+
+    /**
+     * Responsible for retrieving the image
+     * @function
+     * @param {Number} level
+     * @param {Number} x
+     * @param {Number} y
+     * @param {AbortSignal} signal
+     * @param {Boolean} _loadWithAjax  for backward compatibility only, don't use when overriding
+     * @returns {Image|Promise<Image>} HTMLImageElement
+     * @throws {Error}
+     */
+    getTileImage: function( level, x, y, signal, _loadWithAjax ) {
+        //DAO251: default functionality provided for compatibility reasons
+        //  users can override and e.g. ignore signal and/or loadWithAjax parameters
+        var url;
+
+        const fetchOptions = this.getTileFetchOptions(level, x, y, _loadWithAjax);
+        fetchOptions.signal = this.__mergeSignals(signal, fetchOptions.signal);          // so that this could be aborted from both OSD side and user side
+
+        return Promise.resolve(this.getTileUrl(level, x, y))
+            .then( tileUrl=>{
+                url = (typeof tileUrl === 'function') ? tileUrl() : tileUrl;            //DAO251: copied from Tile class, WTF logic was behind that???
+            })
+            .then(() => this._fetchImage(url, fetchOptions));
     },
 
     /**
@@ -679,31 +805,20 @@ $.TileSource.prototype = {
         return {};
     },
 
-    /**
-     * The tile cache object is uniquely determined by this key and used to lookup
-     * the image data in cache: keys should be different if images are different.
-     *
-     * In case a tile has context2D property defined (TileSource.prototype.getContext2D)
-     * or its context2D is set manually; the cache is not used and this function
-     * is irrelevant.
-     * Note: default behaviour does not take into account post data.
-     * @param {Number} level tile level it was fetched with
-     * @param {Number} x x-coordinate in the pyramid level
-     * @param {Number} y y-coordinate in the pyramid level
-     * @param {String} url the tile was fetched with
-     * @param {Object} ajaxHeaders the tile was fetched with
-     * @param {*} postData data the tile was fetched with (type depends on getTilePostData(..) return type)
-     */
-    getTileHashKey: function(level, x, y, url, ajaxHeaders, postData) {
-        function withHeaders(hash) {
-            return ajaxHeaders ? hash + "+" + JSON.stringify(ajaxHeaders) : hash;
-        }
+    //DAO251: cannot use deprecation
+    //  URLs, headers, etc. should NOT be (mis)used as unique ids for cacheKeys.
+    //  Tiles may have NO URLs!!!
 
-        if (typeof url !== "string") {
-            return withHeaders(level + "/" + x + "_" + y);
-        }
-        return withHeaders(url);
-    },
+    // getTileHashKey: function(level, x, y, url, ajaxHeaders, postData) {
+    //     function withHeaders(hash) {
+    //         return ajaxHeaders ? hash + "+" + JSON.stringify(ajaxHeaders) : hash;
+    //     }
+
+    //     if (typeof url !== "string") {
+    //         return withHeaders(level + "/" + x + "_" + y);
+    //     }
+    //     return withHeaders(url);
+    // },
 
     /**
      * @function
@@ -725,124 +840,16 @@ $.TileSource.prototype = {
      * Decide whether tiles have transparency: this is crucial for correct images blending.
      * @returns {boolean} true if the image has transparency
      */
+    // DAO251: there is no way to determine if tile images can be transparent here, so return true to be on safe side.
+    // TODO: remove this method completely
     hasTransparency: function(context2D, url, ajaxHeaders, post) {
-        return true; // DAO251: there is no way to determine if tile images can be transparent here, so return true to be on safe side. Need to remove
+        return true;
         // return !!context2D || url.match('.png');
     },
 
-    /**
-     * Download tile data.
-     * Note that if you override this function, you should override also downloadTileAbort().
-     * @param {ImageJob} context job context that you have to call finish(...) on.
-     * @param {String} [context.src] - URL of image to download.
-     * @param {String} [context.loadWithAjax] - Whether to load this image with AJAX.
-     * @param {String} [context.ajaxHeaders] - Headers to add to the image request if using AJAX.
-     * @param {Boolean} [context.ajaxWithCredentials] - Whether to set withCredentials on AJAX requests.
-     * @param {String} [context.crossOriginPolicy] - CORS policy to use for downloads
-     * @param {String} [context.postData] - HTTP POST data (usually but not necessarily in k=v&k2=v2... form,
-     *   see TileSource::getPostData) or null
-     * @param {*} [context.userData] - Empty object to attach your own data and helper variables to.
-     * @param {Function} [context.finish] - Should be called unless abort() was executed, e.g. on all occasions,
-     *   be it successful or unsuccessful request.
-     *   Usage: context.finish(data, request, errMessage). Pass the downloaded data object or null upon failure.
-     *   Add also reference to an ajax request if used. Provide error message in case of failure.
-     * @param {Function} [context.abort] - Called automatically when the job times out.
-     *   Usage: context.abort().
-     * @param {Function} [context.callback] @private - Called automatically once image has been downloaded
-     *   (triggered by finish).
-     * @param {Number} [context.timeout] @private - The max number of milliseconds that
-     *   this image job may take to complete.
-     * @param {string} [context.errorMsg] @private - The final error message, default null (set by finish).
-     */
     //DAO251: moved downloadTileStart functionality back to ImageLoader class
-    // downloadTileStart: function (context) {
-    //     var dataStore = context.userData,
-    //         image = new Image();
-
-    //     dataStore.image = image;
-    //     dataStore.request = null;
-
-    //     var finish = function(error) {
-    //         if (!image) {
-    //             context.finish(null, dataStore.request, "Image load failed: undefined Image instance.");
-    //             return;
-    //         }
-    //         image.onload = image.onerror = image.onabort = null;
-    //         context.finish(error ? null : image, dataStore.request, error);
-    //     };
-    //     image.onload = function () {
-    //         finish();
-    //     };
-    //     image.onabort = image.onerror = function() {
-    //         finish("Image load aborted.");
-    //     };
-
-    //     // Load the tile with an AJAX request if the loadWithAjax option is
-    //     // set. Otherwise load the image by setting the source property of the image object.
-    //     if (context.loadWithAjax) {
-    //         dataStore.request = $.makeAjaxRequest({
-    //             url: context.src,
-    //             withCredentials: context.ajaxWithCredentials,
-    //             headers: context.ajaxHeaders,
-    //             responseType: "arraybuffer",
-    //             postData: context.postData,
-    //             success: function(request) {
-    //                 var blb;
-    //                 // Make the raw data into a blob.
-    //                 // BlobBuilder fallback adapted from
-    //                 // http://stackoverflow.com/questions/15293694/blob-constructor-browser-compatibility
-    //                 try {
-    //                     blb = new window.Blob([request.response]);
-    //                 } catch (e) {
-    //                     var BlobBuilder = (
-    //                         window.BlobBuilder ||
-    //                         window.WebKitBlobBuilder ||
-    //                         window.MozBlobBuilder ||
-    //                         window.MSBlobBuilder
-    //                     );
-    //                     if (e.name === 'TypeError' && BlobBuilder) {
-    //                         var bb = new BlobBuilder();
-    //                         bb.append(request.response);
-    //                         blb = bb.getBlob();
-    //                     }
-    //                 }
-    //                 // If the blob is empty for some reason consider the image load a failure.
-    //                 if (blb.size === 0) {
-    //                     finish("Empty image response.");
-    //                 } else {
-    //                     // Create a URL for the blob data and make it the source of the image object.
-    //                     // This will still trigger Image.onload to indicate a successful tile load.
-    //                     image.src = (window.URL || window.webkitURL).createObjectURL(blb);
-    //                 }
-    //             },
-    //             error: function(request) {
-    //                 finish("Image load aborted - XHR error");
-    //             }
-    //         });
-    //     } else {
-    //         if (context.crossOriginPolicy !== false) {
-    //             image.crossOrigin = context.crossOriginPolicy;
-    //         }
-    //         image.src = context.src;
-    //     }
-    // },
-
-    /**
-     * Provide means of aborting the execution.
-     * Note that if you override this function, you should override also downloadTileStart().
-     * @param {ImageJob} context job, the same object as with downloadTileStart(..)
-     * @param {*} [context.userData] - Empty object to attach (and mainly read) your own data.
-     */
     //DAO251: moved downloadTileAbort functionality back to ImageLoader.
-    // downloadTileAbort: function (context) {
-    //     if (context.userData.request) {
-    //         context.userData.request.abort();
-    //     }
-    //     var image = context.userData.image;
-    //     if (context.userData.image) {
-    //         image.onload = image.onerror = image.onabort = null;
-    //     }
-    // },
+
 
     /**
      * Create cache object from the result of the download process. The

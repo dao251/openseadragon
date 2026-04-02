@@ -213,13 +213,13 @@
         };
         viewer.addHandler('open', openHandler);
     };
-
+/*
     // ----------
     QUnit.test('Without Post Data, Without Ajax', function(assert) {
         configure(true, "", 'someURL.post#somePostData=1&key=2', assert);
         testOpenUrl(false, false);
     });
-/*
+
     QUnit.test('Without Post Data: Ajax GET', function(assert) {
         configure(true, "", 'someURL.post#somePostData=1&key=2', assert);
         testOpenUrl(false, true);

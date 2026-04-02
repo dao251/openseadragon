@@ -1891,7 +1891,7 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
             bounds  = this.getTileBounds( level, x, y );
             sourceBounds = tileSource.getTileBounds( level, xMod, yMod, true );
             exists  = tileSource.tileExists( level, xMod, yMod );
-            urlOrGetter     = tileSource.getTileUrl( level, xMod, yMod );
+            // urlOrGetter     = tileSource.getTileUrl( level, xMod, yMod );                //DAO251: getTileUrl should never be called outside TileSource
             post    = tileSource.getTilePostData( level, xMod, yMod );
 
             // Headers are only applicable if loadTilesWithAjax is set
@@ -1909,6 +1909,7 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
                 tileSource.getContext2D(level, xMod, yMod) : undefined;
 
             tile = new $.Tile(
+                this,
                 level,
                 x,
                 y,
@@ -1920,7 +1921,8 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
                 ajaxHeaders,
                 sourceBounds,
                 post,
-                tileSource.getTileHashKey(level, xMod, yMod, urlOrGetter, ajaxHeaders, post)
+                //DAO251: cacheKeys are generated in the constructor, cannot use deprecation for the getTileHashKey method of the TileSourceClass so just deleted it.
+                // tileSource.getTileHashKey(level, xMod, yMod, urlOrGetter, ajaxHeaders, post)
             );
 
             if (this.getFlip()) {

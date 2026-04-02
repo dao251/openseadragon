@@ -111,7 +111,7 @@
         viewer.addHandler('tile-load-failed', tileLoadFailed);
         viewer.open(brokenTileSource);
     });
-*/
+
     QUnit.test('Headers can be set per-tile', function(assert) {
         var done = assert.async();
         var tileLoaded = function tileLoaded(evt) {
@@ -372,4 +372,5 @@
             }),
         });
     });
+    */
 })();

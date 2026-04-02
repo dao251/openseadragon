@@ -105,52 +105,32 @@ $.ImageJob.prototype = {
             this.abortController.abort();
         };
 
-        var dataStore = this.userData,
-            image = new Image();
+        //Get Image from TileSource
+        Promise.resolve(
+            this.tile.tiledImage.source.getTileImage(this.tile.level, this.tile.x, this.tile.y, this.abortController.signal, this.loadWithAjax)
+        )
+        .then( image =>{
+            var dataStore = this.userData;
+            dataStore.image = image;
+            dataStore.request = null;
 
-        dataStore.image = image;
-        dataStore.request = null;
+            var finish = (error) => {
+                this.finish(error ? null : image, dataStore.request, error);
+            };
 
-        var finish = (error) => {
-            this.finish(error ? null : image, dataStore.request, error);
-        };
+            image.onload = function () {
+                finish();
+            };
 
-        image.onload = function () {
-            finish();
-        };
-
-        image.onabort = image.onerror = function() {
-            finish("Image load aborted");
-        };
-
-        const fetchOptions = { signal: this.abortController.signal};
-
-        if ( this.loadWithAjax ){
-            if (this.postData){
-                 fetchOptions.method = 'POST';
-                 fetchOptions.body = this.postData;
-            }
-            fetchOptions.credentials = this.ajaxWithCredentials ? 'include' : 'same-origin';
-            fetchOptions.headers = this.ajaxHeaders;
-        }
-
-        fetch(this.src, fetchOptions)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Response not OK');
-            }
-            return response.blob();
+            image.onabort = image.onerror = function() {
+                finish("Image load aborted");
+            };
         })
-        .then( blob => {
-            if( blob.size === 0 ){
-                throw new Error('Empty image response');
-            }
-            var objectURL = URL.createObjectURL(blob);
-            image.src = objectURL;
-        })
-        .catch((e) => {
-            finish(`Image load aborted - Fetch error: ${e.message || e}`);
+        .catch(e => {
+            this.finish(null, null, `Image load aborted - Fetch error: ${e.message || e}`);
         });
+
+
     },
 
     /**

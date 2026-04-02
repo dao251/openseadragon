@@ -37,6 +37,7 @@
 /**
  * @class Tile
  * @memberof OpenSeadragon
+ * @param {OpenSeadragon.TiledImage} tiledImage TiledImage this tile belongs to.
  * @param {Number} level The zoom level this tile belongs to.
  * @param {Number} x The vector component 'x'.
  * @param {Number} y The vector component 'y'.
@@ -54,9 +55,14 @@
  *      with HTML the entire tile is always used.
  * @param {String} postData HTTP POST data (usually but not necessarily in k=v&k2=v2... form,
  *      see TileSource::getPostData) or null
- * @param {String} cacheKey key to act as a tile cache, must be unique for tiles with unique image data
  */
-$.Tile = function(level, x, y, bounds, exists, url, context2D, loadWithAjax, ajaxHeaders, sourceBounds, postData, cacheKey) {
+$.Tile = function(tiledImage, level, x, y, bounds, exists, url, context2D, loadWithAjax, ajaxHeaders, sourceBounds, postData) {
+    /**
+     * TiledImage this tile belongs to.
+     * @member {OpenSeadragon.TiledImage} tiledImage
+     * @memberof OpenSeadragon.Tile#
+     */
+    this.tiledImage = tiledImage;
     /**
      * The zoom level this tile belongs to.
      * @member {Number} level
@@ -136,17 +142,19 @@ $.Tile = function(level, x, y, bounds, exists, url, context2D, loadWithAjax, aja
      */
     this.ajaxHeaders = ajaxHeaders;
 
-    if (cacheKey === undefined) {
-        $.console.warn("Tile constructor needs 'cacheKey' variable: creation tile cache" +
-            " in Tile class is deprecated. TileSource.prototype.getTileHashKey will be used.");
-        cacheKey = $.TileSource.prototype.getTileHashKey(level, x, y, url, ajaxHeaders, postData);
-    }
+    //DAO251: cache keys MUST be unique, so NEVER let any other module manipulate that tile.cacheKey !!!!
+    // Tile constructor does not need 'cacheKey' param, it can perfectly construct it itself.
+    // if (cacheKey === undefined) {
+    //     $.console.warn("Tile constructor needs 'cacheKey' variable: creation tile cache" +
+    //         " in Tile class is deprecated. TileSource.prototype.getTileHashKey will be used.");
+    //     cacheKey = $.TileSource.prototype.getTileHashKey(level, x, y, url, ajaxHeaders, postData);
+    // }
     /**
      * The unique cache key for this tile.
      * @member {String} cacheKey
      * @memberof OpenSeadragon.Tile#
      */
-    this.cacheKey = cacheKey;
+    this.cacheKey = `${tiledImage.source.hash}/${level}/${x}/${y}`;
     /**
      * Is this tile loaded?
      * @member {Boolean} loaded
@@ -318,12 +326,7 @@ $.Tile.prototype = {
      * Get the url string for this tile.
      * @returns {String}
      */
-    getUrl: function() {
-        if (typeof this._url === 'function') {
-            return this._url();
-        }
-
-        return this._url;
+    getUrl: function() {                                //DAO251: isn't valid as Tile may not have url at all //TODO: just remove it
     },
 
     /**
