@@ -32,267 +32,396 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-(function ($) {
+OpenSeadragon.ImageTileSource = class extends OpenSeadragon.TileSource {
 
-    /**
-     * @class ImageTileSource
-     * @classdesc The ImageTileSource allows a simple image to be loaded
-     * into an OpenSeadragon Viewer.
-     * There are 2 ways to open an ImageTileSource:
-     * 1. viewer.open({type: 'image', url: fooUrl});
-     * 2. viewer.open(new OpenSeadragon.ImageTileSource({url: fooUrl}));
-     *
-     * With the first syntax, the crossOriginPolicy and ajaxWithCredentials
-     * options are inherited from the viewer if they are not
-     * specified directly in the options object.
-     *
-     * @memberof OpenSeadragon
-     * @extends OpenSeadragon.TileSource
-     * @param {Object} options Options object.
-     * @param {String} options.url URL of the image
-     * @param {Boolean} [options.buildPyramid=true] If set to true (default), a
-     * pyramid will be built internally to provide a better downsampling.
-     * @param {String|Boolean} [options.crossOriginPolicy=false] Valid values are
-     * 'Anonymous', 'use-credentials', and false. If false, image requests will
-     * not use CORS preventing internal pyramid building for images from other
-     * domains.
-     * @param {String|Boolean} [options.ajaxWithCredentials=false] Whether to set
-     * the withCredentials XHR flag for AJAX requests (when loading tile sources).
-     */
-    $.ImageTileSource = function (options) {
+    constructor({url, buildPyramid = false, crossOriginPolicy = false, ajaxWithCredentials = false}){
+        super(url);
+    }
 
-        options = $.extend({
-            buildPyramid: true,
-            crossOriginPolicy: false,
-            ajaxWithCredentials: false
-        }, options);
-        $.TileSource.apply(this, [options]);
+    supports( data ){
+        return data.type === "image";
+    }
 
-    };
+    configure( options ){
+        return options;
+    }
 
-    $.extend($.ImageTileSource.prototype, $.TileSource.prototype, /** @lends OpenSeadragon.ImageTileSource.prototype */{
-        /**
-         * Determine if the data and/or url imply the image service is supported by
-         * this tile source.
-         * @function
-         * @param {Object|Array} data
-         * @param {String} optional - url
-         */
-        supports: function (data, url) {
-            return data.type && data.type === "image";
-        },
-        /**
-         *
-         * @function
-         * @param {Object} options - the options
-         * @param {String} dataUrl - the url the image was retrieved from, if any.
-         * @param {String} postData - HTTP POST data in k=v&k2=v2... form or null
-         * @returns {Object} options - A dictionary of keyword arguments sufficient
-         *      to configure this tile sources constructor.
-         */
-        configure: function (options, dataUrl, postData) {
-            return options;
-        },
-        /**
-         * Responsible for retrieving, and caching the
-         * image metadata pertinent to this TileSources implementation.
-         * @function
-         * @param {String} url
-         * @throws {Error}
-         */
-        getImageInfo: function (url) {
-            var image = this._image = new Image();
-            var _this = this;
+    getTileImage(level, x, y){
+        return this._image.cloneNode();             //DAO251: no pyramid !!!
+    }
 
-            if (this.crossOriginPolicy) {
-                image.crossOrigin = this.crossOriginPolicy;
-            }
-            if (this.ajaxWithCredentials) {
-                image.useCredentials = this.ajaxWithCredentials;
-            }
+    getImageInfo( url ){
 
-            $.addEvent(image, 'load', function () {
-                _this.width = image.naturalWidth;
-                _this.height = image.naturalHeight;
-                _this.aspectRatio = _this.width / _this.height;
-                _this.dimensions = new $.Point(_this.width, _this.height);
-                _this._tileWidth = _this.width;
-                _this._tileHeight = _this.height;
-                _this.tileOverlap = 0;
-                _this.minLevel = 0;
-                _this.levels = _this._buildLevels();
-                _this.maxLevel = _this.levels.length - 1;
+        Promise.resolve(this._fetchImage(url))
+        .then(image=>{
+            image.onload = () => {
+                this._image = image;
+                this.width = image.naturalWidth;
+                this.height = image.naturalHeight;
+                this.aspectRatio = this.width / this.height;
+                this.dimensions = new OpenSeadragon.Point(this.width, this.height);
+                this._tileWidth = this.width;
+                this._tileHeight = this.height;
+                this.tileOverlap = 0;
+                this.minLevel = 0;
+                this.levels = this.__buildLevels();
+                this.maxLevel = this.levels.length - 1;
 
-                _this.ready = true;
+                this.ready = true;
 
                 // Note: this event is documented elsewhere, in TileSource
-                _this.raiseEvent('ready', {tileSource: _this});
-            });
-
-            $.addEvent(image, 'error', function () {
+                this.raiseEvent('ready', {tileSource: this});
+            };
+            image.onerror = () => {
                 // Note: this event is documented elsewhere, in TileSource
-                _this.raiseEvent('open-failed', {
+                this.raiseEvent('open-failed', {
                     message: "Error loading image at " + url,
                     source: url
                 });
-            });
+            };
 
-            image.src = url;
-        },
-        /**
-         * @function
-         * @param {Number} level
-         */
-        getLevelScale: function (level) {
-            var levelScale = NaN;
-            if (level >= this.minLevel && level <= this.maxLevel) {
-                levelScale =
-                        this.levels[level].width /
-                        this.levels[this.maxLevel].width;
-            }
-            return levelScale;
-        },
-        /**
-         * @function
-         * @param {Number} level
-         */
-        getNumTiles: function (level) {
-            var scale = this.getLevelScale(level);
-            if (scale) {
-                return new $.Point(1, 1);
-            } else {
-                return new $.Point(0, 0);
-            }
-        },
-        /**
-         * Retrieves a tile url
-         * @function
-         * @param {Number} level Level of the tile
-         * @param {Number} x x coordinate of the tile
-         * @param {Number} y y coordinate of the tile
-         */
-        getTileUrl: function (level, x, y) {
-            var url = null;
-            if (level >= this.minLevel && level <= this.maxLevel) {
-                url = this.levels[level].url;
-            }
-            return url;
-        },
-        /**
-         * Retrieves a tile context 2D
-         * @function
-         * @param {Number} level Level of the tile
-         * @param {Number} x x coordinate of the tile
-         * @param {Number} y y coordinate of the tile
-         */
-        getContext2D: function (level, x, y) {
-            var context = null;
-            if (level >= this.minLevel && level <= this.maxLevel) {
-                context = this.levels[level].context2D;
-            }
-            return context;
-        },
-        /**
-         * Destroys ImageTileSource
-         * @function
-         * @param {OpenSeadragon.Viewer} viewer the viewer that is calling
-         * destroy on the ImageTileSource
-         */
-        destroy: function (viewer) {
-            this._freeupCanvasMemory(viewer);
-        },
+        })
+        .catch(()=>{
+        });
 
-        // private
-        //
-        // Builds the different levels of the pyramid if possible
-        // (i.e. if canvas API enabled and no canvas tainting issue).
-        _buildLevels: function () {
+    }
+
+    getLevelScale(level) {
+        return 1; //DAO251: no pyramid !!!
+    }
+
+    getNumTiles(level) {
+        if (level === 0) {
+            return new OpenSeadragon.Point(1, 1);
+        } else {
+            return new OpenSeadragon.Point(0, 0);
+        }
+    }
+
+    __buildLevels () {
             var levels = [{
                     url: this._image.src,
                     width: this._image.naturalWidth,
                     height:  this._image.naturalHeight
                 }];
 
-            if (!this.buildPyramid || !$.supportsCanvas) {
-                // We don't need the image anymore. Allows it to be GC.
-                delete this._image;
-                return levels;
-            }
+//             if (!this.buildPyramid || !$.supportsCanvas) {
+//                 // We don't need the image anymore. Allows it to be GC.
+//                 delete this._image;
+//                 return levels;
+//             }
 
-            var currentWidth = this._image.naturalWidth;
-            var currentHeight = this._image.naturalHeight;
+//             var currentWidth = this._image.naturalWidth;
+//             var currentHeight = this._image.naturalHeight;
 
 
-            var bigCanvas = document.createElement("canvas");
-            var bigContext = bigCanvas.getContext("2d");
+//             var bigCanvas = document.createElement("canvas");
+//             var bigContext = bigCanvas.getContext("2d");
 
-            bigCanvas.width = currentWidth;
-            bigCanvas.height = currentHeight;
-            bigContext.drawImage(this._image, 0, 0, currentWidth, currentHeight);
-            // We cache the context of the highest level because the browser
-            // is a lot faster at downsampling something it already has
-            // downsampled before.
-            levels[0].context2D = bigContext;
-            // We don't need the image anymore. Allows it to be GC.
-            delete this._image;
+//             bigCanvas.width = currentWidth;
+//             bigCanvas.height = currentHeight;
+//             bigContext.drawImage(this._image, 0, 0, currentWidth, currentHeight);
+//             // We cache the context of the highest level because the browser
+//             // is a lot faster at downsampling something it already has
+//             // downsampled before.
+//             levels[0].context2D = bigContext;
+//             // We don't need the image anymore. Allows it to be GC.
+//             delete this._image;
 
-            if ($.isCanvasTainted(bigCanvas)) {
-                // If the canvas is tainted, we can't compute the pyramid.
-                return levels;
-            }
+//             if ($.isCanvasTainted(bigCanvas)) {
+//                 // If the canvas is tainted, we can't compute the pyramid.
+//                 return levels;
+//             }
 
-            // We build smaller levels until either width or height becomes
-            // 1 pixel wide.
-            while (currentWidth >= 2 && currentHeight >= 2) {
-                currentWidth = Math.floor(currentWidth / 2);
-                currentHeight = Math.floor(currentHeight / 2);
-                var smallCanvas = document.createElement("canvas");
-                var smallContext = smallCanvas.getContext("2d");
-                smallCanvas.width = currentWidth;
-                smallCanvas.height = currentHeight;
-                smallContext.drawImage(bigCanvas, 0, 0, currentWidth, currentHeight);
+//             // We build smaller levels until either width or height becomes
+//             // 1 pixel wide.
+//             while (currentWidth >= 2 && currentHeight >= 2) {
+//                 currentWidth = Math.floor(currentWidth / 2);
+//                 currentHeight = Math.floor(currentHeight / 2);
+//                 var smallCanvas = document.createElement("canvas");
+//                 var smallContext = smallCanvas.getContext("2d");
+//                 smallCanvas.width = currentWidth;
+//                 smallCanvas.height = currentHeight;
+//                 smallContext.drawImage(bigCanvas, 0, 0, currentWidth, currentHeight);
 
-                levels.splice(0, 0, {
-                    context2D: smallContext,
-                    width: currentWidth,
-                    height: currentHeight
-                });
+//                 levels.splice(0, 0, {
+//                     context2D: smallContext,
+//                     width: currentWidth,
+//                     height: currentHeight
+//                 });
 
-                bigCanvas = smallCanvas;
-                bigContext = smallContext;
-            }
+//                 bigCanvas = smallCanvas;
+//                 bigContext = smallContext;
+//             }
             return levels;
-        },
-        /**
-         * Free up canvas memory
-         * (iOS 12 or higher on 2GB RAM device has only 224MB canvas memory,
-         * and Safari keeps canvas until its height and width will be set to 0).
-         * @function
-         */
-        _freeupCanvasMemory: function (viewer) {
-            for (var i = 0; i < this.levels.length; i++) {
-                if(this.levels[i].context2D){
-                    this.levels[i].context2D.canvas.height = 0;
-                    this.levels[i].context2D.canvas.width = 0;
+        }
 
-                    if(viewer){
-                        /**
-                        * Triggered when an image has just been unloaded
-                        *
-                        * @event image-unloaded
-                        * @memberof OpenSeadragon.Viewer
-                        * @type {object}
-                        * @property {CanvasRenderingContext2D} context2D - The context that is being unloaded
-                        * @private
-                        */
-                        viewer.raiseEvent("image-unloaded", {
-                            context2D: this.levels[i].context2D
-                        });
-                    }
 
-                }
-            }
-        },
-    });
 
-}(OpenSeadragon));
+};
+
+
+// (function ($) {
+
+//     /**
+//      * @class ImageTileSource
+//      * @classdesc The ImageTileSource allows a simple image to be loaded
+//      * into an OpenSeadragon Viewer.
+//      * There are 2 ways to open an ImageTileSource:
+//      * 1. viewer.open({type: 'image', url: fooUrl});
+//      * 2. viewer.open(new OpenSeadragon.ImageTileSource({url: fooUrl}));
+//      *
+//      * With the first syntax, the crossOriginPolicy and ajaxWithCredentials
+//      * options are inherited from the viewer if they are not
+//      * specified directly in the options object.
+//      *
+//      * @memberof OpenSeadragon
+//      * @extends OpenSeadragon.TileSource
+//      * @param {Object} options Options object.
+//      * @param {String} options.url URL of the image
+//      * @param {Boolean} [options.buildPyramid=true] If set to true (default), a
+//      * pyramid will be built internally to provide a better downsampling.
+//      * @param {String|Boolean} [options.crossOriginPolicy=false] Valid values are
+//      * 'Anonymous', 'use-credentials', and false. If false, image requests will
+//      * not use CORS preventing internal pyramid building for images from other
+//      * domains.
+//      * @param {String|Boolean} [options.ajaxWithCredentials=false] Whether to set
+//      * the withCredentials XHR flag for AJAX requests (when loading tile sources).
+//      */
+//     $.ImageTileSource = function (options) {
+
+//         options = $.extend({
+//             buildPyramid: true,
+//             crossOriginPolicy: false,
+//             ajaxWithCredentials: false
+//         }, options);
+//         $.TileSource.apply(this, [options]);
+
+//     };
+
+//     $.extend($.ImageTileSource.prototype, $.TileSource.prototype, /** @lends OpenSeadragon.ImageTileSource.prototype */{
+//         /**
+//          * Determine if the data and/or url imply the image service is supported by
+//          * this tile source.
+//          * @function
+//          * @param {Object|Array} data
+//          * @param {String} optional - url
+//          */
+//         supports: function (data, url) {
+//             return data.type && data.type === "image";
+//         },
+//         /**
+//          *
+//          * @function
+//          * @param {Object} options - the options
+//          * @param {String} dataUrl - the url the image was retrieved from, if any.
+//          * @param {String} postData - HTTP POST data in k=v&k2=v2... form or null
+//          * @returns {Object} options - A dictionary of keyword arguments sufficient
+//          *      to configure this tile sources constructor.
+//          */
+//         configure: function (options, dataUrl, postData) {
+//             return options;
+//         },
+//         /**
+//          * Responsible for retrieving, and caching the
+//          * image metadata pertinent to this TileSources implementation.
+//          * @function
+//          * @param {String} url
+//          * @throws {Error}
+//          */
+//         getImageInfo: function (url) {
+//             var image = this._image = new Image();
+//             var _this = this;
+
+//             if (this.crossOriginPolicy) {
+//                 image.crossOrigin = this.crossOriginPolicy;
+//             }
+//             if (this.ajaxWithCredentials) {
+//                 image.useCredentials = this.ajaxWithCredentials;
+//             }
+
+//             $.addEvent(image, 'load', function () {
+//                 _this.width = image.naturalWidth;
+//                 _this.height = image.naturalHeight;
+//                 _this.aspectRatio = _this.width / _this.height;
+//                 _this.dimensions = new $.Point(_this.width, _this.height);
+//                 _this._tileWidth = _this.width;
+//                 _this._tileHeight = _this.height;
+//                 _this.tileOverlap = 0;
+//                 _this.minLevel = 0;
+//                 _this.levels = _this._buildLevels();
+//                 _this.maxLevel = _this.levels.length - 1;
+
+//                 _this.ready = true;
+
+//                 // Note: this event is documented elsewhere, in TileSource
+//                 _this.raiseEvent('ready', {tileSource: _this});
+//             });
+
+//             $.addEvent(image, 'error', function () {
+//                 // Note: this event is documented elsewhere, in TileSource
+//                 _this.raiseEvent('open-failed', {
+//                     message: "Error loading image at " + url,
+//                     source: url
+//                 });
+//             });
+
+//             image.src = url;
+//         },
+//         /**
+//          * @function
+//          * @param {Number} level
+//          */
+//         getLevelScale: function (level) {
+//             var levelScale = NaN;
+//             if (level >= this.minLevel && level <= this.maxLevel) {
+//                 levelScale =
+//                         this.levels[level].width /
+//                         this.levels[this.maxLevel].width;
+//             }
+//             return levelScale;
+//         },
+//         /**
+//          * @function
+//          * @param {Number} level
+//          */
+//         getNumTiles: function (level) {
+//             var scale = this.getLevelScale(level);
+//             if (scale) {
+//                 return new $.Point(1, 1);
+//             } else {
+//                 return new $.Point(0, 0);
+//             }
+//         },
+//         /**
+//          * Retrieves a tile url
+//          * @function
+//          * @param {Number} level Level of the tile
+//          * @param {Number} x x coordinate of the tile
+//          * @param {Number} y y coordinate of the tile
+//          */
+//         getTileUrl: function (level, x, y) {
+//             var url = null;
+//             if (level >= this.minLevel && level <= this.maxLevel) {
+//                 url = this.levels[level].url;
+//             }
+//             return url;
+//         },
+//         /**
+//          * Retrieves a tile context 2D
+//          * @function
+//          * @param {Number} level Level of the tile
+//          * @param {Number} x x coordinate of the tile
+//          * @param {Number} y y coordinate of the tile
+//          */
+//         getContext2D: function (level, x, y) {
+//             var context = null;
+//             if (level >= this.minLevel && level <= this.maxLevel) {
+//                 context = this.levels[level].context2D;
+//             }
+//             return context;
+//         },
+//         /**
+//          * Destroys ImageTileSource
+//          * @function
+//          * @param {OpenSeadragon.Viewer} viewer the viewer that is calling
+//          * destroy on the ImageTileSource
+//          */
+//         destroy: function (viewer) {
+//             this._freeupCanvasMemory(viewer);
+//         },
+
+//         // private
+//         //
+//         // Builds the different levels of the pyramid if possible
+//         // (i.e. if canvas API enabled and no canvas tainting issue).
+//         _buildLevels: function () {
+//             var levels = [{
+//                     url: this._image.src,
+//                     width: this._image.naturalWidth,
+//                     height:  this._image.naturalHeight
+//                 }];
+
+//             if (!this.buildPyramid || !$.supportsCanvas) {
+//                 // We don't need the image anymore. Allows it to be GC.
+//                 delete this._image;
+//                 return levels;
+//             }
+
+//             var currentWidth = this._image.naturalWidth;
+//             var currentHeight = this._image.naturalHeight;
+
+
+//             var bigCanvas = document.createElement("canvas");
+//             var bigContext = bigCanvas.getContext("2d");
+
+//             bigCanvas.width = currentWidth;
+//             bigCanvas.height = currentHeight;
+//             bigContext.drawImage(this._image, 0, 0, currentWidth, currentHeight);
+//             // We cache the context of the highest level because the browser
+//             // is a lot faster at downsampling something it already has
+//             // downsampled before.
+//             levels[0].context2D = bigContext;
+//             // We don't need the image anymore. Allows it to be GC.
+//             delete this._image;
+
+//             if ($.isCanvasTainted(bigCanvas)) {
+//                 // If the canvas is tainted, we can't compute the pyramid.
+//                 return levels;
+//             }
+
+//             // We build smaller levels until either width or height becomes
+//             // 1 pixel wide.
+//             while (currentWidth >= 2 && currentHeight >= 2) {
+//                 currentWidth = Math.floor(currentWidth / 2);
+//                 currentHeight = Math.floor(currentHeight / 2);
+//                 var smallCanvas = document.createElement("canvas");
+//                 var smallContext = smallCanvas.getContext("2d");
+//                 smallCanvas.width = currentWidth;
+//                 smallCanvas.height = currentHeight;
+//                 smallContext.drawImage(bigCanvas, 0, 0, currentWidth, currentHeight);
+
+//                 levels.splice(0, 0, {
+//                     context2D: smallContext,
+//                     width: currentWidth,
+//                     height: currentHeight
+//                 });
+
+//                 bigCanvas = smallCanvas;
+//                 bigContext = smallContext;
+//             }
+//             return levels;
+//         },
+//         /**
+//          * Free up canvas memory
+//          * (iOS 12 or higher on 2GB RAM device has only 224MB canvas memory,
+//          * and Safari keeps canvas until its height and width will be set to 0).
+//          * @function
+//          */
+//         _freeupCanvasMemory: function (viewer) {
+//             for (var i = 0; i < this.levels.length; i++) {
+//                 if(this.levels[i].context2D){
+//                     this.levels[i].context2D.canvas.height = 0;
+//                     this.levels[i].context2D.canvas.width = 0;
+
+//                     if(viewer){
+//                         /**
+//                         * Triggered when an image has just been unloaded
+//                         *
+//                         * @event image-unloaded
+//                         * @memberof OpenSeadragon.Viewer
+//                         * @type {object}
+//                         * @property {CanvasRenderingContext2D} context2D - The context that is being unloaded
+//                         * @private
+//                         */
+//                         viewer.raiseEvent("image-unloaded", {
+//                             context2D: this.levels[i].context2D
+//                         });
+//                     }
+
+//                 }
+//             }
+//         },
+//     });
+
+// }(OpenSeadragon));

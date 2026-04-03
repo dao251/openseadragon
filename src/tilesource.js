@@ -705,7 +705,7 @@ $.TileSource.prototype = {
                             //do we need to check we really got an image?
                             const supportedTypes = ['image/apng', 'image/avif', 'image/gif', 'image/jpeg', 'image/png', 'image/webp'];
                             if( !supportedTypes.includes(blob.type)){
-                                throw new Error(`unsupported MIME type: ${blob.type}`);
+                                // throw new Error(`unsupported MIME type: ${blob.type}`);
                             }
                             image.src = URL.createObjectURL(blob);
                             return image;

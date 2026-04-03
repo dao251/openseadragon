@@ -1905,8 +1905,9 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
                 ajaxHeaders = null;
             }
 
-            context2D = tileSource.getContext2D ?
-                tileSource.getContext2D(level, xMod, yMod) : undefined;
+            //DAO251: getContext2D - undocumented method defined ONLY for ImageTileSource, get rid of this !!!
+            // context2D = tileSource.getContext2D ?
+            //     tileSource.getContext2D(level, xMod, yMod) : undefined;
 
             tile = new $.Tile(
                 this,
