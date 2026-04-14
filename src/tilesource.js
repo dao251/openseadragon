@@ -637,13 +637,15 @@ $.TileSource.prototype = {
      * @param {Number} level
      * @param {Number} x
      * @param {Number} y
-     * @param {Boolean} _loadWithAjax  used only for default implementation, to provide bacward compatibility.
+     * @param {Boolean} _loadWithAjax  used only for default implementation, to provide backward compatibility.
+     *      Should not be used when overloading.
+     * @param {Object} _ajaxHeaders  used only for default implementation, to provide backward compatibility.
      *      Should not be used when overloading.
      * @returns {Object} User-defined options for the fetch. Default implementation returns standard Fetch API
-     *      fetch() options simulating OSD 'ajax' flags.
+     *      fetch() options simulating OSD 'ajax...' flags.
      * @throws {Error}
      */
-    getTileFetchOptions: function( level, x, y, _loadWithAjax = false ) {
+    getTileFetchOptions: function( level, x, y, _loadWithAjax = false, _ajaxHeaders = {} ) {
         const fetchOptions = {};
         if ( _loadWithAjax ){
             const postData = this.getTilePostData(level, x, y);
@@ -652,7 +654,7 @@ $.TileSource.prototype = {
                  fetchOptions.body = postData;
             }
             fetchOptions.credentials = this.ajaxWithCredentials ? 'include' : 'same-origin';
-            fetchOptions.headers = this.getTileAjaxHeaders(level, x, y);
+            fetchOptions.headers = _ajaxHeaders;
         }
         return fetchOptions;
     },
@@ -674,22 +676,32 @@ $.TileSource.prototype = {
         return c.signal;
     },
 
-    //DAO251: protected _fetchImage (useful e.g. for proper ImageTileSource)
+    //DAO251: protected _fetchImage (useful e.g. for proper ImageTileSource implementation)
     _fetchImage: function( url, fetchOptions ) {
-        //DAO251: default functionality provided for compatibility reasons
-        //  users can override and e.g. ignore signal and/or loadWithAjax parameters
 
-        const image = new Image(); // value to return
+        const image = new Image();
 
         return fetch(url, fetchOptions)
-            .catch((e) => {
+            .catch( e => {
+                if( fetchOptions.signal.aborted ){
+                    const reason = fetchOptions.signal.reason;
+                    throw new Error( `${reason}. url:${url}` );
+                }
                 if( fetchOptions.mode && fetchOptions.mode.toLowerCase() === 'no-cors' ){
                     throw e; // re-throw as this certainly was not CORS error.
                 }
-                // possible CORS error, so give it another chance by simulating opaque response (will lead to re-request in no-cors mode)
-                return {type: "opaque"};
+                // possible CORS error, so give it another chance
+                image._nonCors = true;
+                // NB! we mark the resulting image as non-CORS
+                //   this (non-standard) attribute can be checked later instead of trying if it taints canvas
             })
             .then(response => {
+                // fake response, see above: give it another chance by trying simple <img src="url">
+                if( response === undefined && image._nonCors ){
+                    image.src = url;
+                    return image;
+                }
+                // regular fetch response
                 switch (response.type) {
                     /* eslint-disable no-fallthrough */
                     // Readable CORS/basic response
@@ -699,28 +711,37 @@ $.TileSource.prototype = {
                             throw new Error(`HTTP error ${response.status}`);
                         }
                         return response.blob().then(blob => {
-                            if( blob.size === 0){
-                                throw new Error('empty response.blob');
-                            }
                             //do we need to check we really got an image?
                             const supportedTypes = ['image/apng', 'image/avif', 'image/gif', 'image/jpeg', 'image/png', 'image/webp'];
                             if( !supportedTypes.includes(blob.type)){
+                                $.console.warn(`unsupported MIME type: ${blob.type} url:${url}`);
                                 // throw new Error(`unsupported MIME type: ${blob.type}`);
                             }
-                            image.src = URL.createObjectURL(blob);
+                            const objectURL = URL.createObjectURL(blob);
+                            image.src = objectURL;
+                            image.onload = () => URL.revokeObjectURL(objectURL);
                             return image;
                         });
-                    // Opaque or opaqueredirect:
-                    // 1) mark the image as non-CORS (any canvas will be tainted)
-                    // 2) response.blob() is most probably unusable, we do not even try it.
-                    //      Actual fetch will be done by browser using original url (non-cors mode)
                     case 'opaque':
                     case 'opaqueredirect':
-                        image._nonCors = true;
-                        image.src = url;
-                        return image;
+                        image._nonCors = true;              // MUST be set
+
+                        // most probably we cannot use blob from opaque response
+                        // let's try:
+                        return response.blob().then(blob => {
+                            if( blob.size() === 0){         // definitely unusable blob
+                                image.src = url;            // the very last attempt
+                                return image;
+                            }else{                          // will try to use the blob
+                                // if the blob is unusable, decode error will occure at ImageLoader
+                                const objectURL = URL.createObjectURL(blob);
+                                image.src = objectURL;
+                                image.onload = () => URL.revokeObjectURL(objectURL);
+                                return image;
+                            }
+                        });
                     default:
-                        throw new Error(`Unexpected response type: "${response.type}"`); // should never happen
+                        throw new Error(`Unexpected response type: "${response.type}" url:${url}`); // should never happen
                     /* eslint-enable no-fallthrough */
                 }
             });
@@ -737,20 +758,24 @@ $.TileSource.prototype = {
      * @returns {Image|Promise<Image>} HTMLImageElement
      * @throws {Error}
      */
-    getTileImage: function( level, x, y, signal, _loadWithAjax ) {
-        //DAO251: default functionality provided for compatibility reasons
-        //  users can override and e.g. ignore signal and/or loadWithAjax parameters
-        var url;
+    getTileImage: function( level, x, y, signal, _loadWithAjax, _ajaxHeaders ) {
+        //DAO251: default functionality provided for backward compatibility
+        //  users can override and may ignore signal
+        //  and/or MUST ignore _ajax parameters
+        // var url;
 
-        const fetchOptions = this.getTileFetchOptions(level, x, y, _loadWithAjax);
+        const fetchOptions = this.getTileFetchOptions(level, x, y, _loadWithAjax, _ajaxHeaders);
         fetchOptions.signal = this.__mergeSignals(signal, fetchOptions.signal);          // so that this could be aborted from both OSD side and user side
 
-        return Promise.resolve(this.getTileUrl(level, x, y))
-            .then( tileUrl=>{
-                url = (typeof tileUrl === 'function') ? tileUrl() : tileUrl;            //DAO251: copied from Tile class, WTF logic was behind that???
-            })
-            .then(() => this._fetchImage(url, fetchOptions));
-    },
+        return (
+            Promise.resolve()
+            .then( () => this.getTileUrl(level, x, y))
+            .then( url =>
+                (typeof url === 'function') ? url() : url            //DAO251: copied from Tile class, WTF logic was behind that???
+            )
+            .then( url => this._fetchImage(url, fetchOptions))
+        );
+   },
 
     /**
      * Must use AJAX in order to work, i.e. loadTilesWithAjax = true is set.

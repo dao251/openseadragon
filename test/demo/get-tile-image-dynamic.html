@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OSD Demo - Dynamic Tile Images</title>
+    <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
+    <!-- <script type="text/javascript" src='../lib/jquery-1.9.1.min.js'></script> -->
+    <style type="text/css">
+
+        .openseadragon {
+            width: 800px;
+            height: 600px;
+        }
+
+    </style>
+</head>
+<body>
+<div>
+    <p>Dynamic Tile Images generation using getTileImage method of TileSource class</p>
+    <p>See console errors for error propagation</p>
+</div>
+
+<div id="example" class="openseadragon"></div>
+<pre id="out"></pre>
+
+<script id="code" type="text/javascript">
+
+const tileSize = 256;
+
+async function generateTileImage(level, x, y) {
+
+    // simulate long fetch, 0-200ms, random
+    // actual delay will be little longer, because of async image decoding
+    // especially when zooming in quckly
+    await delay(Math.floor(Math.random()*200));
+
+    // simulate random errors
+    if( Math.random()*100 < 1)
+        throw `simulated ERROR`
+
+    // drawing tile image:
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = tileSize;
+    const ctx = canvas.getContext("2d");
+
+    // transparent light green background
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+    ctx.fillRect(0, 0, tileSize, tileSize);
+    //black border
+    ctx.strokeRect(0, 0, tileSize, tileSize);
+    // blue text with tile coordinates
+    ctx.fillStyle = "blue";
+    ctx.font = `${tileSize/12}px serif`;
+    ctx.fillText(`level:${level} x:${x} y:${y}`, 10, tileSize/10, tileSize-10);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+
+    const image = new Image();
+    const blobUrl = URL.createObjectURL(blob);
+    image.src = blobUrl;
+    image.onload = () => URL.revokeObjectURL(blobUrl);
+
+    return image;
+}
+
+
+OpenSeadragon({
+    id:            "example",
+    prefixUrl: "../../build/openseadragon/images/",
+    drawer: 'canvas',
+    timeout: 300,
+    tileSources: new OpenSeadragon.TileSource({
+            height: 1024*1024*tileSize,  // extremely deep Image
+            width:  1024*1024*tileSize,
+            tileSize: tileSize,
+            getTileImage: generateTileImage,
+        }),
+});
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+</script>
+
+<script>
+  document.getElementById("out").textContent =
+    document.getElementById("code").textContent;
+</script>
+
+
+</body>
+</html>

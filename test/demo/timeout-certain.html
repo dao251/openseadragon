@@ -15,7 +15,7 @@
 </head>
 <body>
 <div>
-    <p>The ImageLoader timeout is set to 0 ms, and the tile source is remote.</p>
+    <p>The ImageLoader timeout is set to 50 ms, and the tile source is remote.</p>
     <p>In any web browser on any network connection, OpenSeadragon should not load properly, and the browser console log should show tile loading errors.</p>
 </div>
 <div id="contentDiv" class="openseadragon1"></div>
@@ -28,7 +28,8 @@
         //DAO251: wellcomelibrary.org IIIF image doesn't work because of CORS, so use DZI (like v6 does)
         tileSources: "https://openseadragon.github.io/example-images/highsmith/highsmith.dzi",
         showNavigator:true,
-        timeout: 0
+        debugMode: true,
+        timeout: 50,
     });
 
 </script>

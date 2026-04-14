@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OSD Demo - Dynamic Tile Images</title>
+    <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
+    <!-- <script type="text/javascript" src='../lib/jquery-1.9.1.min.js'></script> -->
+    <style type="text/css">
+
+        .openseadragon {
+            width: 800px;
+            height: 600px;
+        }
+
+    </style>
+</head>
+<body>
+<div>
+    <p>Dynamic Tile Images generation using getTileImage method of TileSource class</p>
+    <p>     Mandelbrot Fractal with OpenSeadragon like https://openseadragon.github.io/examples/tilesource-custom-advanced/</p>
+    <p>     Compact, implementation requires just single method override </p>
+</div>
+
+<div id="example" class="openseadragon"></div>
+
+<pre id="out"></pre>
+
+<script id="code" type="text/javascript">
+
+class MyTileSource extends OpenSeadragon.TileSource{
+
+    async getTileImage(level, x, y) {
+        // --- compute tile size and bounds ---
+        let size =      this.getTileBounds(level, x, y, true);
+        let bounds =    this.getTileBounds(level, x, y, false);
+
+        size.width =    Math.floor(size.width);
+        size.height =   Math.floor(size.height);
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        if (size.width < 1 || size.height < 1) {
+            canvas.width = canvas.height = 1;
+            return canvasToImg(canvas);
+        }
+
+        canvas.width = size.width;
+        canvas.height = size.height;
+
+        // --- apply custom scaling transforms ---
+        bounds.x = bounds.x * 2.5 - 1.5;
+        bounds.y = bounds.y * 2.5 - 1.2;
+        bounds.width =  bounds.width  * 2.5;
+        bounds.height = bounds.height * 2.5;
+
+        // --- generate Mandelbrot tile ---
+        const imagedata = ctx.createImageData(size.width, size.height);
+        const data = imagedata.data;
+
+        for (let x = 0; x < size.width; x++) {
+            for (let y = 0; y < size.height; y++) {
+                const idx = (y * size.width + x) * 4;
+                const a = bounds.x + bounds.width * ((x + 1) / size.width);
+                const b = bounds.y + bounds.height * ((y + 1) / size.height);
+
+                data[idx] = Math.floor( iterateMandelbrot({ a, b }, this.maxIterations) * 255 );
+                data[idx + 3] = 255;
+            }
+        }
+        ctx.putImageData(imagedata, 0, 0);
+        return canvasToImg(canvas);
+    }
+}
+
+
+OpenSeadragon({
+    id:            "example",
+    prefixUrl: "../../build/openseadragon/images/",
+    // drawer: 'canvas',
+    tileSources: new MyTileSource({
+            height:         1024*1024*1024,
+            width:          1024*1024*1024,
+            tileSize:       256,
+            minLevel:       9,
+            maxIterations:  100,
+        }),
+});
+
+// Helpers
+async function canvasToImg(canvas) {
+    const blob = await new Promise(resolve =>
+        canvas.toBlob(resolve, "image/png")
+    );
+
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.src = url;
+    img.onload = () => URL.revokeObjectURL(url);
+
+    return img;
+}
+
+function iterateMandelbrot(refPoint, maxIterations) {
+    const squareAndAddPoint = function(z, point) {
+        const a = Math.pow(z.a,2)-Math.pow(z.b, 2) + point.a;
+        const b = 2*z.a*z.b + point.b;
+        z.a = a;
+        z.b = b;
+    };
+
+    const length = function(z) {
+        return Math.sqrt(Math.pow(z.a, 2) + Math.pow(z.b, 2));
+    };
+
+    const z = {a: 0, b: 0};
+    for (let i=0; i < maxIterations; i++){
+        squareAndAddPoint(z, refPoint);
+        if(length(z)>2){
+            return i/maxIterations;
+        }
+    }
+    return 1.0;
+}
+</script>
+
+
+
+<script>
+  document.getElementById("out").textContent =
+    document.getElementById("code").textContent;
+</script>
+
+
+</body>
+</html>

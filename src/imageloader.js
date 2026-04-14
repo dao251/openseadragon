@@ -96,38 +96,45 @@ $.ImageJob.prototype = {
 
         this.abortController = new AbortController();
 
-        this.jobId = window.setTimeout(() => {      // DAO251: use arrow syntax for 'this'
-            this.abortController.abort();
-            this.finish(null, null, "Image load exceeded timeout (" + this.timeout + " ms)");
-        }, this.timeout);
-
-        this.abort = () => {                        // DAO251: use arrow syntax for 'this'
-            this.abortController.abort();
+        this.abort = (reason) => {
+            this.abortController.abort(reason);
         };
 
-        //Get Image from TileSource
-        Promise.resolve(
-            this.tile.tiledImage.source.getTileImage(this.tile.level, this.tile.x, this.tile.y, this.abortController.signal, this.loadWithAjax)
+        this.jobId = window.setTimeout(() => {
+            this.abortController.abort(`timeout (${this.timeout} ms) exceeded`);
+        }, this.timeout);
+
+        //Get Image from TileSource (resolve if it was Image, not a Promise)
+        Promise.resolve().then(() =>
+            this.tile.tiledImage.source.getTileImage(
+                this.tile.level, this.tile.x, this.tile.y,
+                this.abortController.signal,
+                this.loadWithAjax,
+                this.ajaxHeaders,
+            )
         )
+        // make sure it is fully loaded
+        .then(image =>
+            (image.complete ? Promise.resolve() : image.decode())
+            .then(() => image)
+        )
+        // and not aborted during the load
+        .then(image =>{
+            if (this.abortController.signal.aborted){
+                throw new Error(this.abortController.signal.reason);
+            }
+            return image;
+        })
+        // finish the job
         .then( image =>{
             var dataStore = this.userData;
             dataStore.image = image;
             dataStore.request = null;
-
-            var finish = (error) => {
-                this.finish(error ? null : image, dataStore.request, error);
-            };
-
-            image.onload = function () {
-                finish();
-            };
-
-            image.onabort = image.onerror = function() {
-                finish("Image load aborted");
-            };
+            this.finish(image, dataStore.request);
         })
+        // propagate the error
         .catch(e => {
-            this.finish(null, null, `Image load aborted - Fetch error: ${e.message || e}`);
+            this.finish(null, null, `Image load failed: ${e.message || e}`);
         });
 
 

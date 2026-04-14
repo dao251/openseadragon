@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OSD Demo - Dynamic Tile Images</title>
+    <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
+    <!-- <script type="text/javascript" src='../lib/jquery-1.9.1.min.js'></script> -->
+    <style type="text/css">
+
+        .openseadragon {
+            width: 1024px;
+            height: 768px;
+        }
+
+    </style>
+</head>
+<body>
+<div>
+    <p>Mixing two OSM-like tile sources</p>
+    <p>There are two maps: <br>
+        1) old-style Soviet TopoMap (main), available for few regions only, and <br>
+        2) OpenStreetMap (fallback)</p>
+    <p>The "MixingTileSource" loads tiles from 1) and falls back to 2) when there is an error (e.g. missing tile) </p>
+    <p>(Zoom In and Out)</p>
+
+
+</div>
+
+<div id="example" class="openseadragon"></div>
+<pre id="out"></pre>
+
+<script id="code" type="text/javascript">
+
+// OpenStreetMap-like TileSource, using URL template
+class OSMTileSource extends OpenSeadragon.TileSource{
+    constructor( urlTemplate ){
+        super({
+            height: 67108864,
+            width: 	67108864,
+            tileSize: 256,
+        })
+        this._urlTemplate = urlTemplate;
+    }
+    getTileUrl(level,x,y){
+        const z = level - 8;
+        return eval("`"+this._urlTemplate+"`")
+    }
+}
+
+class MixingTileSource extends OSMTileSource{
+    constructor( mainURLTemplate, fallbackURLTemplate ){
+        super(mainURLTemplate)
+        this._fallback = new OSMTileSource(fallbackURLTemplate)
+    }
+    getTileImage(level,x,y,signal){
+        if(level > 21){  // just to make to demo clearer
+            return super.getTileImage(level,x,y,signal)
+        }
+        if(level < 18){  // just to make to demo clearer
+            return this._fallback.getTileImage(level,x,y,signal)
+        }
+        return super.getTileImage(level,x,y,signal)
+            .catch((e) => this._fallback.getTileImage(level,x,y,signal))
+    }
+}
+
+const main     = "https://map.epi.ru/_tiles/RTM/${z}/${x}/${y}.png"
+const fallback = "https://tile.openstreetmap.org/${z}/${x}/${y}.png"
+
+const viewer = OpenSeadragon({
+    id:            "example",
+    prefixUrl: "../../build/openseadragon/images/",
+    // maxZoomLevel: 1300,
+    // drawer: 'canvas',
+    tileSources: new MixingTileSource(main,fallback),
+});
+
+viewer.addHandler('open', () => {
+	viewer.viewport.panTo( new OpenSeadragon.Point(0.6179,0.3669) )
+	viewer.viewport.zoomTo( 62 )
+})
+
+</script>
+
+<script>
+  document.getElementById("out").textContent =
+    document.getElementById("code").textContent;
+</script>
+
+
+</body>
+</html>

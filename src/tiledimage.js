@@ -1892,7 +1892,7 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
             sourceBounds = tileSource.getTileBounds( level, xMod, yMod, true );
             exists  = tileSource.tileExists( level, xMod, yMod );
             // urlOrGetter     = tileSource.getTileUrl( level, xMod, yMod );                //DAO251: getTileUrl should never be called outside TileSource
-            post    = tileSource.getTilePostData( level, xMod, yMod );
+            // post    = tileSource.getTilePostData( level, xMod, yMod );                   //DAO251: moved to TileSource (getTileFetchOptions)
 
             // Headers are only applicable if loadTilesWithAjax is set
             if (this.loadTilesWithAjax) {
@@ -1989,7 +1989,7 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
      */
     _onTileLoad: function( tile, time, data, errorMsg, tileRequest ) {
         if ( !data ) {
-            $.console.error( "Tile %s failed to load: %s - error: %s", tile, tile.getUrl(), errorMsg );
+            $.console.error( `Tile ${tile.cacheKey} failed to load: error: ${errorMsg}` );
             /**
              * Triggered when a tile fails to load.
              *
