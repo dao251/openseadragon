@@ -91,6 +91,8 @@
  *      The minimum level to attempt to load.
  * @param {Number} [options.maxLevel]
  *      The maximum level to attempt to load.
+ * @param {Object} [options.fetchOptions]
+ *      Default fetchOptions.
  */
 $.TileSource = function( width, height, tileSize, tileOverlap, minLevel, maxLevel ) {
 
@@ -638,15 +640,15 @@ $.TileSource.prototype = {
      * @param {Number} x
      * @param {Number} y
      * @param {Boolean} _loadWithAjax  used only for default implementation, to provide backward compatibility.
-     *      Should not be used when overloading.
+     *      Should not be used when overriding.
      * @param {Object} _ajaxHeaders  used only for default implementation, to provide backward compatibility.
-     *      Should not be used when overloading.
+     *      Should not be used when overriding.
      * @returns {Object} User-defined options for the fetch. Default implementation returns standard Fetch API
      *      fetch() options simulating OSD 'ajax...' flags.
      * @throws {Error}
      */
     getTileFetchOptions: function( level, x, y, _loadWithAjax = false, _ajaxHeaders = {} ) {
-        const fetchOptions = {};
+        const fetchOptions = this.fetchOptions || {};
         if ( _loadWithAjax ){
             const postData = this.getTilePostData(level, x, y);
             if (postData){
@@ -692,7 +694,7 @@ $.TileSource.prototype = {
                 }
                 // possible CORS error, so give it another chance
                 image._nonCors = true;
-                // NB! we mark the resulting image as non-CORS
+                // NB! mark the resulting image as non-CORS
                 //   this (non-standard) attribute can be checked later instead of trying if it taints canvas
             })
             .then(response => {
@@ -724,7 +726,7 @@ $.TileSource.prototype = {
                         });
                     case 'opaque':
                     case 'opaqueredirect':
-                        image._nonCors = true;              // MUST be set
+                        image._nonCors = true;              // MUST be set, as Image pixels are unreadable
 
                         // most probably we cannot use blob from opaque response
                         // let's try:

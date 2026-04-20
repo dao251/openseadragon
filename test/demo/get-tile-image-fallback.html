@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>OSD Demo - Dynamic Tile Images</title>
+    <title>OSD Demo - Mixing TileSources</title>
+    <title>OSD Demo - Mixing TileSources</title>
     <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
     <!-- <script type="text/javascript" src='../lib/jquery-1.9.1.min.js'></script> -->
     <style type="text/css">
@@ -34,9 +35,10 @@
 class OSMTileSource extends OpenSeadragon.TileSource{
     constructor( urlTemplate ){
         super({
-            height: 67108864,
-            width: 	67108864,
+            height: Math.pow(2,21),
+            width: 	Math.pow(2,21),
             tileSize: 256,
+            minLevel: 8,
         })
         this._urlTemplate = urlTemplate;
     }
@@ -52,9 +54,6 @@ class MixingTileSource extends OSMTileSource{
         this._fallback = new OSMTileSource(fallbackURLTemplate)
     }
     getTileImage(level,x,y,signal){
-        if(level > 21){  // just to make to demo clearer
-            return super.getTileImage(level,x,y,signal)
-        }
         if(level < 18){  // just to make to demo clearer
             return this._fallback.getTileImage(level,x,y,signal)
         }
@@ -69,8 +68,7 @@ const fallback = "https://tile.openstreetmap.org/${z}/${x}/${y}.png"
 const viewer = OpenSeadragon({
     id:            "example",
     prefixUrl: "../../build/openseadragon/images/",
-    // maxZoomLevel: 1300,
-    // drawer: 'canvas',
+    drawer: 'canvas',
     tileSources: new MixingTileSource(main,fallback),
 });
 

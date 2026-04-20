@@ -7,8 +7,8 @@
     <style type="text/css">
 
         .openseadragon {
-            width: 800px;
-            height: 600px;
+            width: 1024px;
+            height: 768px;
         }
 
     </style>
@@ -28,7 +28,7 @@
 
 class MyTileSource extends OpenSeadragon.TileSource{
 
-    async getTileImage(level, x, y) {
+    getTileImage(level, x, y) {
         // --- compute tile size and bounds ---
         let size =      this.getTileBounds(level, x, y, true);
         let bounds =    this.getTileBounds(level, x, y, false);
