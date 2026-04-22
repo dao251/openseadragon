@@ -78,14 +78,14 @@
                     tileSource: "../data/testpattern.dzi",
                     x: 0,
                     y: 0,
-                    flipped: document.getElementById("ffirst").checked,
-                    degrees: document.getElementById("rfirst").checked * 45,
+                    // flipped: document.getElementById("ffirst").checked,                  // DAO251: cannot set before the tileSource is ready
+                    // degrees: document.getElementById("rfirst").checked * 45,             // DAO251: cannot set before the tileSource is ready
                 }, {
                     tileSource: "../data/testpattern.dzi",
                     x: 1,
                     y: 0,
-                    flipped: document.getElementById("fsecond").checked,
-                    degrees: document.getElementById("rsecond").checked * 45,
+                    // flipped: document.getElementById("fsecond").checked,                 // DAO251: cannot set before the tileSource is ready
+                    // degrees: document.getElementById("rsecond").checked * 45,            // DAO251: cannot set before the tileSource is ready
                 }
             ]
         });
