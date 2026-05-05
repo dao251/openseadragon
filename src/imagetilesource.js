@@ -80,37 +80,25 @@ OpenSeadragon.ImageTileSource = class extends OpenSeadragon.TileSource {
     }
 
     getImageInfo( url ){
-
         Promise.resolve(this._fetchImage(url))
         .then(image=>{
-            image.onload = () => {
-                this.__image = image;
+            this.__image = image;
 
-                this.width = image.naturalWidth;
-                this.height = image.naturalHeight;
-                this.aspectRatio = this.width / this.height;
-                this.dimensions = new OpenSeadragon.Point(this.width, this.height);
+            this.width = image.naturalWidth;
+            this.height = image.naturalHeight;
+            this.aspectRatio = this.width / this.height;
+            this.dimensions = new OpenSeadragon.Point(this.width, this.height);
 
-                this.__buildImagePyramid();
+            this.__buildImagePyramid();
 
-                this.minLevel = 0;
-                this.maxLevel = this.__levels.length - 1;
+            this.minLevel = 0;
+            this.maxLevel = this.__levels.length - 1;
 
-                this.ready = true;
+            this.ready = true;
 
-                // Note: this event is documented elsewhere, in TileSource
-                this.raiseEvent('ready', {tileSource: this});
-            };
-            image.onerror = () => {
-                // Note: this event is documented elsewhere, in TileSource
-                this.raiseEvent('open-failed', {
-                    message: "Error loading image at " + url,
-                    source: url
-                });
-            };
+            // Note: this event is documented elsewhere, in TileSource
+            this.raiseEvent('ready', {tileSource: this});
         })
-        // we need both image.onerror above and the .catch() to support non-CORS images
-        //  non-CORS handled by onerror, and "normal" fetch by the .catch block below
         .catch( (e) => {
             // Note: this event is documented elsewhere, in TileSource
             this.raiseEvent('open-failed', {

@@ -96,7 +96,7 @@
  */
 $.TileSource = function( width, height, tileSize, tileOverlap, minLevel, maxLevel ) {
 
-    this.hash = Date.now().toString(16).concat( 1000 + Math.floor(Math.random() * 1000) );    //DAO251:  generate unique ID for this TileSource
+    this.hash = $.Utils.uniqueId();    //DAO251:  generate unique ID for this TileSource
 
     var _this = this;
 
@@ -679,74 +679,74 @@ $.TileSource.prototype = {
     },
 
     //DAO251: protected _fetchImage (useful e.g. for proper ImageTileSource implementation)
+
     _fetchImage: function( url, fetchOptions ) {
+        fetchOptions = fetchOptions || {};
+        const signal = fetchOptions.signal;
+
+        if (signal && signal.aborted) {
+            return Promise.reject( new DOMException(String(signal.reason), "AbortError") );
+        }
 
         const image = new Image();
 
         return fetch(url, fetchOptions)
-            .catch( e => {
-                if( fetchOptions.signal.aborted ){
-                    const reason = fetchOptions.signal.reason;
-                    throw new Error( `${reason}. url:${url}` );
+            .catch( error => {
+                if (signal && signal.aborted) {
+                    // rethrow as a normalized error
+                    // note that Chrome sometimes aborts internally (whatever that means)
+                    // and resets signal.reason to be "The user aborted a request.", even if OSD (or app) aborted with another reason
+                    throw new DOMException(String(signal.reason), "AbortError");
                 }
+
                 if( fetchOptions.mode && fetchOptions.mode.toLowerCase() === 'no-cors' ){
-                    throw e; // re-throw as this certainly was not CORS error.
+                    throw error;                                                            // re-throw original error as it certainly was not CORS error.
                 }
-                // possible CORS error, so give it another chance
-                image._nonCors = true;
-                // NB! mark the resulting image as non-CORS
-                //   this (non-standard) attribute can be checked later instead of trying if it taints canvas
+                // possible CORS error, we'll give it another chance
+                // we should NOT do this if OSD is in a "CORS-strict" mode (if/when we implement it)
+                // in the (default) "CORS-tolerant" mode we have to deal with non-CORS servers by trying direct URL loading
+                // we do not use fetch(... {mode:'no-cors'}) because in most cases it would return inusable blob
+                return undefined;                                                           // return dummy (undefined) response)
             })
             .then(response => {
-                // fake response, see above: give it another chance by trying simple <img src="url">
-                if( response === undefined && image._nonCors ){
+                // dummy response, see above: give it another chance by trying simple <img src="url">
+                if( response === undefined ){
+                    image._nonCors = true;                                                  // NB! mark the resulting image as non-CORS
                     image.src = url;
                     return image;
                 }
-                // regular fetch response
-                switch (response.type) {
-                    /* eslint-disable no-fallthrough */
-                    // Readable CORS/basic response
-                    case 'cors':
-                    case 'basic':
-                        if (!response.ok) {
-                            throw new Error(`HTTP error ${response.status}`);
-                        }
-                        return response.blob().then(blob => {
-                            //do we need to check we really got an image?
-                            const supportedTypes = ['image/apng', 'image/avif', 'image/gif', 'image/jpeg', 'image/png', 'image/webp'];
-                            if( !supportedTypes.includes(blob.type)){
-                                $.console.warn(`unsupported MIME type: ${blob.type} url:${url}`);
-                                // throw new Error(`unsupported MIME type: ${blob.type}`);
-                            }
-                            const objectURL = URL.createObjectURL(blob);
-                            image.src = objectURL;
-                            image.onload = () => URL.revokeObjectURL(objectURL);
-                            return image;
-                        });
-                    case 'opaque':
-                    case 'opaqueredirect':
-                        image._nonCors = true;              // MUST be set, as Image pixels are unreadable
-
-                        // most probably we cannot use blob from opaque response
-                        // let's try:
-                        return response.blob().then(blob => {
-                            if( blob.size() === 0){         // definitely unusable blob
-                                image.src = url;            // the very last attempt
-                                return image;
-                            }else{                          // will try to use the blob
-                                // if the blob is unusable, decode error will occure at ImageLoader
-                                const objectURL = URL.createObjectURL(blob);
-                                image.src = objectURL;
-                                image.onload = () => URL.revokeObjectURL(objectURL);
-                                return image;
-                            }
-                        });
-                    default:
-                        throw new Error(`Unexpected response type: "${response.type}" url:${url}`); // should never happen
-                    /* eslint-enable no-fallthrough */
+                // normal fetch
+                if(response.type === 'opaque' || response.type === 'opaqueredirect'){
+                    image._nonCors = true;              // MUST be set, as Image pixels are unreadable
+                } else if(response.type === 'basic' || response.type === 'cors'){
+                    if (!response.ok) {
+                        throw new Error(`HTTP error ${response.status}`);
+                    }
+                } else {
+                    throw new Error(`Unexpected response type: "${response.type}" url:${url}`); // should never happen
                 }
-            });
+
+                return response.blob().then(blob => {
+
+                    if( blob.size === 0 ){           // definitely unusable blob
+                        if ( image._nonCors ){
+                            image.src = url;            // the very last attempt by trying simple <img src="url">
+                            return image;
+                        } else {
+                            throw new Error(`HTTP ${response.status} with empty body`);
+                        }
+                    }
+
+                    const objectURL = URL.createObjectURL(blob);
+                    image.src = objectURL;
+
+                    return OpenSeadragon.Utils.safeImageDecode(image)
+                        .finally(() => URL.revokeObjectURL(objectURL));
+
+                });
+            })
+            .then(image => OpenSeadragon.Utils.safeImageDecode(image));
+
     },
 
     /**

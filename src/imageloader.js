@@ -114,29 +114,17 @@ $.ImageJob.prototype = {
             )
         )
         // make sure it is fully loaded
-        .then(image =>
-            (image.complete ? Promise.resolve() : image.decode())
-            .then(() => image)
-        )
-        // and not aborted during the load
+        .then(image => $.Utils.safeImageDecode(image))
         .then(image =>{
-            if (this.abortController.signal.aborted){
-                throw new Error(this.abortController.signal.reason);
-            }
-            return image;
-        })
-        // finish the job
-        .then( image =>{
             var dataStore = this.userData;
             dataStore.image = image;
             dataStore.request = null;
             this.finish(image, dataStore.request);
         })
         // propagate the error
-        .catch(e => {
-            this.finish(null, null, `Image load failed: ${e.message || e}`);
+        .catch(err => {
+            this.finish(null, null, `Image load failed: ${err.message || err}`);
         });
-
 
     },
 
