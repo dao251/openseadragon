@@ -472,6 +472,9 @@ function rStats ( settings ) {
     }
 
     function _update () {
+        //DAO251: disble stats panel update - it causes memory leaks and consumes resources
+        //  better use e.g. VScode Profiler
+        return;
 
         iterateKeys( _settings.plugins, function ( j ) {
             _settings.plugins[ j ].update();

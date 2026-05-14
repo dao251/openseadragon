@@ -92,7 +92,7 @@
  * @param {Number} [options.maxLevel]
  *      The maximum level to attempt to load.
  * @param {Object} [options.fetchOptions]
- *      Default fetchOptions.
+ *      Default fetchOptions. When specified, options.crossOriginPolicy is ignored.
  */
 $.TileSource = function( width, height, tileSize, tileOverlap, minLevel, maxLevel ) {
 
@@ -293,7 +293,8 @@ $.TileSource.prototype = {
      */
     setMaxLevel: function( level ) {
         this.maxLevel = level;
-        this._memoizeLevelScale();
+        //DAO251: there is no need to memoize with modern JS engines
+        // this._memoizeLevelScale();
     },
 
     /**
@@ -303,24 +304,28 @@ $.TileSource.prototype = {
     getLevelScale: function( level ) {
         // if getLevelScale is not memoized, we generate the memoized version
         // at the first call and return the result
-        this._memoizeLevelScale();
-        return this.getLevelScale( level );
+        //DAO251: there is no need to memoize with modern JS engines
+        // this._memoizeLevelScale();
+        // return this.getLevelScale( level );
+
+        return 1 / Math.pow(2, this.maxLevel - level);
     },
 
+    //DAO251: there is no sense to memoize with modern JS engines
     // private
-    _memoizeLevelScale: function() {
-        // see https://github.com/openseadragon/openseadragon/issues/22
-        // we use the tilesources implementation of getLevelScale to generate
-        // a memoized re-implementation
-        var levelScaleCache = {},
-            i;
-        for( i = 0; i <= this.maxLevel; i++ ){
-            levelScaleCache[ i ] = 1 / Math.pow(2, this.maxLevel - i);
-        }
-        this.getLevelScale = function( _level ){
-            return levelScaleCache[ _level ];
-        };
-    },
+    // _memoizeLevelScale: function() {
+    //     // see https://github.com/openseadragon/openseadragon/issues/22
+    //     // we use the tilesources implementation of getLevelScale to generate
+    //     // a memoized re-implementation
+    //     var levelScaleCache = {},
+    //         i;
+    //     for( i = 0; i <= this.maxLevel; i++ ){
+    //         levelScaleCache[ i ] = 1 / Math.pow(2, this.maxLevel - i);
+    //     }
+    //     this.getLevelScale = function( _level ){
+    //         return levelScaleCache[ _level ];
+    //     };
+    // },
 
     /**
      * @function
@@ -516,7 +521,7 @@ $.TileSource.prototype = {
                 callback: callback
             });
         } else {
-            // request info via xhr asynchronously.
+            // request info via xhr asynchronously. //DAO251: //TODO: replace with fetch
             $.makeAjaxRequest( {
                 url: url,
                 postData: postData,
@@ -643,13 +648,13 @@ $.TileSource.prototype = {
      *      Should not be used when overriding.
      * @param {Object} _ajaxHeaders  used only for default implementation, to provide backward compatibility.
      *      Should not be used when overriding.
-     * @returns {Object} User-defined options for the fetch. Default implementation returns standard Fetch API
-     *      fetch() options simulating OSD 'ajax...' flags.
+     * @returns {Object} User-defined options for image fetching.
      * @throws {Error}
      */
-    getTileFetchOptions: function( level, x, y, _loadWithAjax = false, _ajaxHeaders = {} ) {
-        const fetchOptions = this.fetchOptions || {};
-        if ( _loadWithAjax ){
+    getTileFetchOptions: function ( level, x, y, _loadWithAjax = false, _ajaxHeaders = {} ) {
+        var fetchOptions;
+        if ( _loadWithAjax ){                       // simulate via fetchOptions
+            fetchOptions = { mode: "cors"};
             const postData = this.getTilePostData(level, x, y);
             if (postData){
                  fetchOptions.method = 'POST';
@@ -661,8 +666,8 @@ $.TileSource.prototype = {
         return fetchOptions;
     },
 
-    //DAO251: private 'static' helper method for the getTileImage below, merges two abort signals
-    __mergeSignals: (a, b) => {
+    //DAO251: private 'static' helper method for getTileImage below, merges two abort signals
+    __mergeSignals: function (a, b) {
         if(!a){
             return b;
         }
@@ -678,74 +683,67 @@ $.TileSource.prototype = {
         return c.signal;
     },
 
-    //DAO251: protected _fetchImage (useful e.g. for proper ImageTileSource implementation)
+    //DAO251: protected _fetchImage (useful hlper e.g. for proper ImageTileSource implementation)
 
-    _fetchImage: function( url, fetchOptions ) {
-        fetchOptions = fetchOptions || {};
-        const signal = fetchOptions.signal;
+    _fetchImage: function ( url, fetchOptions, signal, crossOriginPolicy ) {
 
-        if (signal && signal.aborted) {
-            return Promise.reject( new DOMException(String(signal.reason), "AbortError") );
+        // crossOriginPolicy = this.crossOriginPolicy || crossOriginPolicy;                     // ????
+
+        if( fetchOptions ){
+            fetchOptions.signal = this.__mergeSignals(signal, fetchOptions.signal);         // so that fetching could be aborted from both OSD side and user side
+            signal = fetchOptions.signal;
         }
 
-        const image = new Image();
+        if (signal && signal.aborted) {                                                     // aborted before fetch
+            throw new DOMException(String(signal.reason), "AbortError");
+        }
 
-        return fetch(url, fetchOptions)
-            .catch( error => {
-                if (signal && signal.aborted) {
-                    // rethrow as a normalized error
-                    // note that Chrome sometimes aborts internally (whatever that means)
-                    // and resets signal.reason to be "The user aborted a request.", even if OSD (or app) aborted with another reason
-                    throw new DOMException(String(signal.reason), "AbortError");
-                }
-
-                if( fetchOptions.mode && fetchOptions.mode.toLowerCase() === 'no-cors' ){
-                    throw error;                                                            // re-throw original error as it certainly was not CORS error.
-                }
-                // possible CORS error, we'll give it another chance
-                // we should NOT do this if OSD is in a "CORS-strict" mode (if/when we implement it)
-                // in the (default) "CORS-tolerant" mode we have to deal with non-CORS servers by trying direct URL loading
-                // we do not use fetch(... {mode:'no-cors'}) because in most cases it would return inusable blob
-                return undefined;                                                           // return dummy (undefined) response)
-            })
-            .then(response => {
-                // dummy response, see above: give it another chance by trying simple <img src="url">
-                if( response === undefined ){
-                    image._nonCors = true;                                                  // NB! mark the resulting image as non-CORS
-                    image.src = url;
-                    return image;
-                }
-                // normal fetch
-                if(response.type === 'opaque' || response.type === 'opaqueredirect'){
-                    image._nonCors = true;              // MUST be set, as Image pixels are unreadable
-                } else if(response.type === 'basic' || response.type === 'cors'){
-                    if (!response.ok) {
-                        throw new Error(`HTTP error ${response.status}`);
+        if ( !fetchOptions ){                                                               // use statndard HTML Image Fetch Algorithm
+            const img = new Image();
+            if ( crossOriginPolicy ){                                                       // why do they have 'false' option ???? !!!
+                img.crossOrigin = crossOriginPolicy;
+            }
+            img.src = url;
+            return OpenSeadragon.Utils.safeImageDecode(img);                               // promise decoded <img> element
+        } else {
+            return fetch(url, fetchOptions)
+                .catch( error => {
+                    if (signal && signal.aborted) {
+                        // rethrow as a normalized error
+                        // note that Chrome sometimes aborts internally (whatever that means)
+                        // and resets signal.reason to be "The user aborted a request.", even if OSD (or app) aborted with another reason
+                        throw new DOMException(String(signal.reason), "AbortError");
                     }
-                } else {
-                    throw new Error(`Unexpected response type: "${response.type}" url:${url}`); // should never happen
-                }
-
-                return response.blob().then(blob => {
-
-                    if( blob.size === 0 ){           // definitely unusable blob
-                        if ( image._nonCors ){
-                            image.src = url;            // the very last attempt by trying simple <img src="url">
-                            return image;
-                        } else {
-                            throw new Error(`HTTP ${response.status} with empty body`);
+                    throw error;
+                })
+                .then(response => {
+                    if (signal && signal.aborted) {
+                       throw new DOMException(String(signal.reason), "AbortError");
+                    }
+                    if (response.type === "error") {
+                        throw new Error("Network error");
+                    }
+                    if(response.type === 'opaque' || response.type === 'opaqueredirect'){
+                        void 0;
+                    } else if(response.type === 'basic' || response.type === 'cors'){
+                        if (!response.ok) {
+                            throw new Error(`HTTP error ${response.status}`);
                         }
+                    } else {
+                        throw new Error(`Unexpected response type: "${response.type}" url:${url}`); // should never happen
                     }
-
-                    const objectURL = URL.createObjectURL(blob);
-                    image.src = objectURL;
-
-                    return OpenSeadragon.Utils.safeImageDecode(image)
-                        .finally(() => URL.revokeObjectURL(objectURL));
-
+                    return response.blob().then(blob => {
+                        if (blob.size === 0) {
+                            throw new Error("Empty blob");
+                        }
+                        const blobUrl = URL.createObjectURL(blob);
+                        const img = new Image();
+                        img.src = blobUrl;
+                        return OpenSeadragon.Utils.safeImageDecode(img)
+                            .finally(()=>URL.revokeObjectURL(blobUrl));
+                    });
                 });
-            })
-            .then(image => OpenSeadragon.Utils.safeImageDecode(image));
+        }
 
     },
 
@@ -760,14 +758,13 @@ $.TileSource.prototype = {
      * @returns {Image|Promise<Image>} HTMLImageElement
      * @throws {Error}
      */
-    getTileImage: function( level, x, y, signal, _loadWithAjax, _ajaxHeaders ) {
+    getTileImage: function( level, x, y, signal, _loadWithAjax, _ajaxHeaders, crossOriginPolicy ) {
         //DAO251: default functionality provided for backward compatibility
         //  users can override and may ignore signal
         //  and/or MUST ignore _ajax parameters
         // var url;
 
         const fetchOptions = this.getTileFetchOptions(level, x, y, _loadWithAjax, _ajaxHeaders);
-        fetchOptions.signal = this.__mergeSignals(signal, fetchOptions.signal);          // so that this could be aborted from both OSD side and user side
 
         return (
             Promise.resolve()
@@ -775,7 +772,7 @@ $.TileSource.prototype = {
             .then( url =>
                 (typeof url === 'function') ? url() : url            //DAO251: copied from Tile class, WTF logic was behind that???
             )
-            .then( url => this._fetchImage(url, fetchOptions))
+            .then( url => this._fetchImage(url, fetchOptions, signal, crossOriginPolicy))
         );
    },
 
@@ -863,88 +860,6 @@ $.TileSource.prototype = {
                y < numTiles.y;
     },
 
-    /**
-     * Decide whether tiles have transparency: this is crucial for correct images blending.
-     * @returns {boolean} true if the image has transparency
-     */
-    // DAO251: there is no way to determine if tile images can be transparent here, so return true to be on safe side.
-    // TODO: remove this method completely
-    hasTransparency: function(context2D, url, ajaxHeaders, post) {
-        return true;
-        // return !!context2D || url.match('.png');
-    },
-
-    //DAO251: moved downloadTileStart functionality back to ImageLoader class
-    //DAO251: moved downloadTileAbort functionality back to ImageLoader.
-
-
-    /**
-     * Create cache object from the result of the download process. The
-     * cacheObject parameter should be used to attach the data to, there are no
-     * conventions on how it should be stored - all the logic is implemented within *TileCache() functions.
-     *
-     * Note that if you override any of *TileCache() functions, you should override all of them.
-     * @param {object} cacheObject context cache object
-     * @param {*} data image data, the data sent to ImageJob.prototype.finish(), by default an Image object
-     * @param {Tile} tile instance the cache was created with
-     */
-    createTileCache: function(cacheObject, data, tile) {
-        cacheObject._data = data;
-    },
-
-    /**
-     * Cache object destructor, unset all properties you created to allow GC collection.
-     * Note that if you override any of *TileCache() functions, you should override all of them.
-     * @param {object} cacheObject context cache object
-     */
-    destroyTileCache: function (cacheObject) {
-        cacheObject._data = null;
-        cacheObject._renderedContext = null;
-    },
-
-    /**
-     * Raw data getter
-     * Note that if you override any of *TileCache() functions, you should override all of them.
-     * @param {object} cacheObject context cache object
-     * @returns {*} cache data
-     */
-    getTileCacheData: function(cacheObject) {
-        return cacheObject._data;
-    },
-
-    /**
-     * Compatibility image element getter
-     *  - plugins might need image representation of the data
-     *  - div HTML rendering relies on image element presence
-     * Note that if you override any of *TileCache() functions, you should override all of them.
-     *  @param {object} cacheObject context cache object
-     *  @returns {Image} cache data as an Image
-     */
-    getTileCacheDataAsImage: function(cacheObject) {
-        return cacheObject._data; //the data itself by default is Image
-    },
-
-    /**
-     * Compatibility context 2D getter
-     *  - most heavily used rendering method is a canvas-based approach,
-     *    convert the data to a canvas and return it's 2D context
-     * Note that if you override any of *TileCache() functions, you should override all of them.
-     * @param {object} cacheObject context cache object
-     * @returns {CanvasRenderingContext2D} context of the canvas representation of the cache data
-     */
-    getTileCacheDataAsContext2D: function(cacheObject) {
-        if (!cacheObject._renderedContext) {
-            var canvas = document.createElement( 'canvas' );
-            canvas.width = cacheObject._data.width;
-            canvas.height = cacheObject._data.height;
-            cacheObject._renderedContext = canvas.getContext('2d');
-            cacheObject._renderedContext.drawImage( cacheObject._data, 0, 0 );
-            //since we are caching the prerendered image on a canvas
-            //allow the image to not be held in memory
-            cacheObject._data = null;
-        }
-        return cacheObject._renderedContext;
-    }
 };
 
 

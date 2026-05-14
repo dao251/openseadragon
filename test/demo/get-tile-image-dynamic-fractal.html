@@ -68,7 +68,7 @@ class MyTileSource extends OpenSeadragon.TileSource{
             }
         }
         ctx.putImageData(imagedata, 0, 0);
-        return canvasToImg(canvas);
+        return canvas;
     }
 }
 
@@ -76,7 +76,7 @@ class MyTileSource extends OpenSeadragon.TileSource{
 OpenSeadragon({
     id:            "example",
     prefixUrl: "../../build/openseadragon/images/",
-    // drawer: 'canvas',
+    drawer: 'canvas',
     tileSources: new MyTileSource({
             height:         1024*1024*1024,
             width:          1024*1024*1024,
@@ -87,18 +87,6 @@ OpenSeadragon({
 });
 
 // Helpers
-async function canvasToImg(canvas) {
-    const blob = await new Promise(resolve =>
-        canvas.toBlob(resolve, "image/png")
-    );
-
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.src = url;
-    img.onload = () => URL.revokeObjectURL(url);
-
-    return img;
-}
 
 function iterateMandelbrot(refPoint, maxIterations) {
     const squareAndAddPoint = function(z, point) {

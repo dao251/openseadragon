@@ -1784,16 +1784,7 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
             levelVisibility
         );
 
-        if (!tile.loaded) {
-            if (tile.context2D) {
-                this._setTileLoaded(tile);
-            } else {
-                var imageRecord = this._tileCache.getImageRecord(tile.cacheKey);
-                if (imageRecord) {
-                    this._setTileLoaded(tile, imageRecord.getData());
-                }
-            }
-        }
+
 
         if ( tile.loading ) {
             // the tile is already in the download queue
@@ -2022,15 +2013,9 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
             return;
         }
 
-        var _this = this,
-            finish = function() {
-                var ccc = _this.source;
-                var cutoff = ccc.getClosestLevel();
-                _this._setTileLoaded(tile, data, cutoff, tileRequest);
-        };
+        //DAO251: just re-wrote to be readable
+        this._setTileLoaded(tile, data, this.source.getClosestLevel(), tileRequest);
 
-
-        finish();
     },
 
     /**
@@ -2058,18 +2043,8 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
             increment--;
             if (increment === 0) {
                 tile.loading = false;
-                tile.loaded = true;
-                // tile.hasTransparency = _this.source.hasTransparency(                     // DAO251: removed hasTransparency flag
-                //     tile.context2D, tile.getUrl(), tile.ajaxHeaders, tile.postData
-                // );
-                if (!tile.context2D) {
-                    _this._tileCache.cacheTile({
-                        data: data,
-                        tile: tile,
-                        cutoff: cutoff,
-                        tiledImage: _this
-                    });
-                }
+                tile.setImage(data);
+
                 /**
                  * Triggered when a tile is loaded and pre-processing is compelete,
                  * and the tile is ready to draw.

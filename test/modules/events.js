@@ -1285,7 +1285,7 @@
         viewer.addHandler( 'tile-loaded', tileLoaded);
         viewer.open( '/test/data/testpattern.dzi' );
     } );
-
+/* DAO251: there is no tile-unloaded !!!!
     QUnit.test( 'Viewer: tile-unloaded event.', function(assert) {
         var tiledImage;
         var tile;
@@ -1313,5 +1313,5 @@
         viewer.addHandler( 'tile-unloaded', tileUnloaded );
         viewer.open( '/test/data/testpattern.dzi' );
     } );
-
+*/
 } )();
