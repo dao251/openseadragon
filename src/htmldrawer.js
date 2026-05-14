@@ -200,12 +200,8 @@ class HTMLDrawer extends OpenSeadragon.DrawerBase{
 
         let container = this.canvas;
 
-        if (!tile.cacheImageRecord) {
-            $.console.warn(
-                '[Drawer._drawTileToHTML] attempting to draw tile %s when it\'s not cached',
-                tile.toString());
-            return;
-        }
+        //DAO251: only Tile class can access TileCache
+
 
         if ( !tile.loaded ) {
             $.console.warn(
@@ -225,7 +221,7 @@ class HTMLDrawer extends OpenSeadragon.DrawerBase{
             }
 
             tile.element                              = $.makeNeutralElement( "div" );
-            tile.imgElement                           = image.cloneNode();
+            tile.imgElement                           = $.Utils.toCanvas(image); //DAO251: clones the canvas element
             tile.imgElement.style.msInterpolationMode = "nearest-neighbor";
             tile.imgElement.style.width               = "100%";
             tile.imgElement.style.height              = "100%";

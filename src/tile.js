@@ -154,13 +154,7 @@ $.Tile = function(tiledImage, level, x, y, bounds, exists, url, context2D, loadW
      * @member {String} cacheKey
      * @memberof OpenSeadragon.Tile#
      */
-    this.cacheKey = `${tiledImage.source.hash}/${level}/${x}/${y}`;
-    /**
-     * Is this tile loaded?
-     * @member {Boolean} loaded
-     * @memberof OpenSeadragon.Tile#
-     */
-    this.loaded  = false;
+    this.cacheKey = $.TileCache.getTileCacheKey(tiledImage, level, x, y);   // use TileCache static method (isolation)
     /**
      * Is this tile loading?
      * @member {Boolean} loading
@@ -315,28 +309,47 @@ $.Tile.prototype = {
     },
 
     /**
-     * Get the Image object for this tile.
+     * Get HTMLElement for the tile.
      * @returns {Image}
      */
     getImage: function() {
-        return this.cacheImageRecord.getImage();
+        return this.getCanvasContext().canvas;
+    },
+
+    //DAO251: the only three methods below deals with TileCache !!!!
+
+    /**
+     * Get the CanvasRenderingContext2D from TileCache
+     * @returns {CanvasRenderingContext2D}
+     */
+    getCanvasContext: function() {
+        return this.tiledImage._tileCache.gett(this.cacheKey);
+    },
+
+    /**
+     * is the Tile loaded (cached) ?
+     * @member {Boolean} loaded
+     * @memberof OpenSeadragon.Tile#
+     */
+    get loaded() {
+        return this.tiledImage._tileCache.has(this.cacheKey);
+    },
+
+    /**
+     * Sets (and caches) the canvas element for the tile
+     */
+    setImage: function( canvas ){                    //DAO251:  //TODO: rename to setCanvas ??? think of contextAttributes ????
+        const value = (canvas === undefined ? undefined : canvas.getContext('2d') );
+        this.tiledImage._tileCache.set( this.cacheKey, value );
     },
 
     /**
      * Get the url string for this tile.
      * @returns {String}
      */
-    getUrl: function() {                                //DAO251: isn't valid as Tile may not have url at all //TODO: just remove it
+    getUrl: function() {                                //DAO251: isn't valid as Tile may not have url at all //TODO: just remove it ???
     },
 
-    /**
-     * Get the CanvasRenderingContext2D instance for tile image data drawn
-     * onto Canvas if enabled and available
-     * @returns {CanvasRenderingContext2D}
-     */
-    getCanvasContext: function() {
-        return this.context2D || (this.cacheImageRecord && this.cacheImageRecord.getRenderedContext());
-    },
 
     /**
      * Get the ratio between current and original size.
@@ -344,18 +357,15 @@ $.Tile.prototype = {
      * @returns {Float}
      */
     getScaleForEdgeSmoothing: function() {
-        var context;
-        if (this.cacheImageRecord) {
-            context = this.cacheImageRecord.getRenderedContext();
-        } else if (this.context2D) {
-            context = this.context2D;
-        } else {
+        try{
+            const context = this.getImage();
+            return context.canvas.width / (this.size.x * $.pixelDensityRatio);
+        } catch(e){
             $.console.warn(
                 '[Tile.drawCanvas] attempting to get tile scale %s when tile\'s not cached',
                 this.toString());
             return 1;
         }
-        return context.canvas.width / (this.size.x * $.pixelDensityRatio);
     },
 
     /**

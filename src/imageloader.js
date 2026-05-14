@@ -104,22 +104,34 @@ $.ImageJob.prototype = {
             this.abortController.abort(`timeout (${this.timeout} ms) exceeded`);
         }, this.timeout);
 
-        //Get Image from TileSource (resolve if it was Image, not a Promise)
-        Promise.resolve().then(() =>
+        //Get Image from TileSource (resolve if it was not a Promise)
+        new Promise(resolve => setTimeout(resolve, 0))
+        .then(() =>
             this.tile.tiledImage.source.getTileImage(
                 this.tile.level, this.tile.x, this.tile.y,
                 this.abortController.signal,
                 this.loadWithAjax,
                 this.ajaxHeaders,
+                this.crossOriginPolicy,
             )
         )
-        // make sure it is fully loaded
-        .then(image => $.Utils.safeImageDecode(image))
-        .then(image =>{
-            var dataStore = this.userData;
-            dataStore.image = image;
-            dataStore.request = null;
-            this.finish(image, dataStore.request);
+        // make sure it is fully loaded (e.g <img> comes from custom TileSource)
+        .then( image => $.Utils.safeImageDecode(image))
+        .then( image => $.Utils.toCanvas(image) )
+        .then( canvas =>{
+            // we should react to abortion even if the image loading was successful
+            // e.g. uncancelable HTML Image Fetch + timeout
+            const signal = this.abortController.signal;
+            if (signal && signal.aborted) {
+                throw new DOMException(String(signal.reason), "AbortError");
+            }
+            return canvas;
+        })
+        .then( canvas =>{
+            // var dataStore = this.userData;
+            // dataStore.image = canvas;
+            // dataStore.request = null;
+            this.finish(canvas);
         })
         // propagate the error
         .catch(err => {

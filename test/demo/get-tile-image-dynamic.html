@@ -51,21 +51,18 @@ async function generateTileImage(level, x, y) {
     ctx.fillStyle = "blue";
     ctx.font = `${tileSize/12}px serif`;
     ctx.fillText(`level:${level} x:${x} y:${y}`, 10, tileSize/10, tileSize-10);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
 
-    const image = new Image();
-    const blobUrl = URL.createObjectURL(blob);
-    image.src = blobUrl;
-    image.onload = () => URL.revokeObjectURL(blobUrl);
+    return canvas;
 
-    return image;
 }
 
 
 OpenSeadragon({
     id:            "example",
     prefixUrl: "../../build/openseadragon/images/",
+    // drawer: 'webgl',
     drawer: 'canvas',
+    // drawer: 'html',
     timeout: 300,
     tileSources: new OpenSeadragon.TileSource({
             height: 1024*1024*tileSize,  // extremely deep Image
