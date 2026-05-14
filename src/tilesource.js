@@ -736,11 +736,7 @@ $.TileSource.prototype = {
                         if (blob.size === 0) {
                             throw new Error("Empty blob");
                         }
-                        const blobUrl = URL.createObjectURL(blob);
-                        const img = new Image();
-                        img.src = blobUrl;
-                        return OpenSeadragon.Utils.safeImageDecode(img)
-                            .finally(()=>URL.revokeObjectURL(blobUrl));
+                        return OpenSeadragon.Utils.safeCreateImageBitmap(blob);
                     });
                 });
         }

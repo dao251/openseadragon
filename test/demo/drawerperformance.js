@@ -4,6 +4,7 @@ const sources = {
     "bblue":{
         type:'image',
         url: "../data/BBlue.png",
+        buildPyramid: false,        // no build pyramid, as v6 demo uses single-tile-ImageTileSource, to provide comparable perf figures.
     },
     "duomo":"https://openseadragon.github.io/example-images/duomo/duomo.dzi",
 }
@@ -959,7 +960,8 @@ function makeViewer(drawerType){
         crossOriginPolicy: 'Anonymous',
         ajaxWithCredentials: false,
         drawer:drawerType,
-        blendTime:0
+        blendTime:0,
+        maxImageCacheCount:400,
     });
 
     return viewer;
