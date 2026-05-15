@@ -1,6 +1,25 @@
 OPENSEADRAGON CHANGELOG
 =======================
 
+5.1.0:
+
+... to be continued ...
+
+* added few demos for getTileImage: get-tile-image-..., how to use the getTileImage
+* added two demos from the OSD site: iip-OSD-site and iiif-OSD-site
+
+* BREAKING: added new method of TileSource class: getTileImage(level,x,y)
+    This method returns CanvasImageSource or Promise<CanvasImageSource>.
+    This allows e.g. other (non-HTTP) protocols as a source for tiles' images.
+    In fact, this is the only method that (child, custom) TileSource must implement.
+    For backward compatibility, the default implementation provided, fetching the images
+    in older OSD manner.
+* BREAKING: removed downloadTileStart/downloadTileAbort methods of TileSource as not SOLID-compliant.
+    Any apps/plugins that used these API won't work. Use getTileImage instead (see above)
+
+* Removed hasTransparency flags as de-facto unusable
+* Removed Opera Mini from .browserlistrc. This does not (in any way) affect Opera Mini's ability to run OSD.
+
 5.0.1:
 
 * Improved overlay handling so it plays better with other libraries (#2582 @BeebBenjamin)
