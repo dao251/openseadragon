@@ -41,11 +41,11 @@ $.TileCache = class {
     }
 
     /**
-     * Retrieves a tile and moves it to the end of the LRU queue, marking it as recently used.
+     * Retrieves a tile and moves it to the end of the LRU queue, making it the most recently used.
      * @param {string} key - The unique key for the tile.
      * @returns {*} The cached tile, or undefined if not found.
      */
-    gett(key) {
+    use(key) {
         const map = this.#map;
         const value = map.get(key);
         map.delete(key);                                // Remove the old position.

@@ -323,7 +323,7 @@ $.Tile.prototype = {
      * @returns {CanvasRenderingContext2D}
      */
     getCanvasContext: function() {
-        return this.tiledImage._tileCache.gett(this.cacheKey);
+        return this.tiledImage._tileCache.use(this.cacheKey);
     },
 
     /**
@@ -342,6 +342,8 @@ $.Tile.prototype = {
         const value = (canvas === undefined ? undefined : canvas.getContext('2d') );
         this.tiledImage._tileCache.set( this.cacheKey, value );
     },
+
+    //DAO251: end of TileCache usage
 
     /**
      * Get the url string for this tile.
