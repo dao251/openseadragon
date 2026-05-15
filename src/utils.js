@@ -4,9 +4,11 @@
 (function( $ ){
 OpenSeadragon.Utils = class {
 
-    // Generates a strictly monotonic, collision‑proof unique ID.
-    // Uses timestamp(ms) + per‑ms counter stored inside a closure.
-    // No randomness, no external state, no collisions within this JS process.
+    /**
+     * Generates a strictly monotonic, collision-proof unique ID.
+     * Uses a timestamp and a per-millisecond counter to ensure uniqueness.
+     * @returns {string} A unique ID string.
+     */
     static uniqueId = (() => {
         let last = 0;
         let count = 0;
@@ -28,12 +30,12 @@ OpenSeadragon.Utils = class {
         };
     })();
 
-    // ------------------------------------------------------------
-    // safeImageDecode(): race‑free wrapper around image.decode().
-    // Attaches error/abort handlers before decode() to avoid synchronous
-    // resolution races and Safari’s decode‑before‑error bug. Resolves with
-    // the image only when it is fully decoded and valid.
-    // ------------------------------------------------------------
+    /**
+     * Decodes an image safely, avoiding resolution races and browser-specific bugs.
+     * @param {HTMLImageElement|*} image - The image to decode.
+     *      In the case the parameter is not an HTMLImageElement, the method simply returns it wrapped in a Promise
+     * @returns {Promise<HTMLImageElement|*>} A promise that resolves with the decoded image.
+     */
     static safeImageDecode = (image) => {
 
         if(!(image instanceof Image)){              // don't throw if something else is passed (e.g. canvas element or ImageBitmap)
@@ -71,9 +73,11 @@ OpenSeadragon.Utils = class {
         });
     };
 
-    // ------------------------------------------------------------
-    //  safeCreateImageBitmap(blob)
-    // ------------------------------------------------------------
+    /**
+     * Creates an ImageBitmap from a Blob, with Safari-specific bug detection and fallback.
+     * @param {Blob} blob - The Blob object to create an ImageBitmap from.
+     * @returns {Promise<ImageBitmap>} A promise that resolves to the created ImageBitmap.
+     */
     static safeCreateImageBitmap(blob) {
 
         // Detects Safari's "bitmap exists but cannot be drawn" bug
@@ -149,6 +153,11 @@ OpenSeadragon.Utils = class {
             .catch(() => createImageBitmapFallback(blob));
     }
 
+    /**
+     * Converts an image source to a canvas element.
+     * @param {HTMLImageElement|HTMLCanvasElement|HTMLVideoElement|ImageBitmap|OffscreenCanvas|VideoFrame|SVGImageElement} source - The image source to convert.
+     * @returns {HTMLCanvasElement} The resulting canvas element.
+     */
     static toCanvas(source) {
         const canvas = document.createElement("canvas");
         canvas.width = source.width;
@@ -160,5 +169,21 @@ OpenSeadragon.Utils = class {
         return canvas;
     }
 
+    /**
+     * Checks if the given object is a valid canvas image source.
+     * @param {*} x - The object to check.
+     * @returns {boolean} True if the object is a valid canvas image source, false otherwise.
+     */
+    static isCanvasImageSource(x) {
+        return (
+            x instanceof HTMLImageElement ||
+            x instanceof HTMLCanvasElement ||
+            x instanceof HTMLVideoElement ||
+            x instanceof ImageBitmap ||
+            x instanceof OffscreenCanvas ||
+            (typeof window.VideoFrame !== "undefined" && x instanceof window.VideoFrame) ||     // eslint-disable-line compat/compat
+            x instanceof SVGImageElement
+        );
+    }
 };
 }( OpenSeadragon ));
