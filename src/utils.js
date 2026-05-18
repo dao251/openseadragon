@@ -84,8 +84,11 @@ OpenSeadragon.Utils = class {
         const isBitmapDrawable = (bmp) => {
             return new Promise(resolve => {
                 try {
-                    const canvas = new OffscreenCanvas(bmp.width, bmp.height);
-                    const ctx = canvas.getContext("2d");
+                    // const canvas = new OffscreenCanvas(bmp.width, bmp.height);
+                    const canvas = document.createElement("canvas");
+                    canvas.width = bmp.width;
+                    canvas.height = bmp.height;
+                    const ctx = canvas.getContext("2d", {willReadFrequently: true});
                     ctx.drawImage(bmp, 0, 0);
 
                     const w = bmp.width;
@@ -186,4 +189,4 @@ OpenSeadragon.Utils = class {
         );
     }
 };
-}( OpenSeadragon ));
+}(OpenSeadragon));

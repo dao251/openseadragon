@@ -128,9 +128,6 @@ $.ImageJob.prototype = {
             return canvas;
         })
         .then( canvas =>{
-            // var dataStore = this.userData;
-            // dataStore.image = canvas;
-            // dataStore.request = null;
             this.finish(canvas);
         })
         // propagate the error

@@ -32,12 +32,14 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-OpenSeadragon.ImageTileSource = class extends OpenSeadragon.TileSource {
+(function( $ ){
+$.ImageTileSource = class extends $.TileSource {
 
     constructor({url, buildPyramid = true, tileSize = 256}){
         super(url);
         this.__buildPyramid = buildPyramid;
         this.__tileSize = tileSize;
+        this.ready = false;
     }
 
     supports( data ){
@@ -50,14 +52,17 @@ OpenSeadragon.ImageTileSource = class extends OpenSeadragon.TileSource {
 
     getTileImage(level, x, y){
         const image = this.__levels[level];
-        // no pyramid built
-        if( image instanceof Image ){
-            return image.cloneNode();       //need clone because OSD will delete the image
-        }
-
         const tileSize = this.__tileSize;
 
-        const tileCanvas = new OffscreenCanvas(tileSize, tileSize);
+        if(!this.__buildPyramid){
+            return image;
+        }
+
+        // const tileCanvas = new OffscreenCanvas(tileSize, tileSize);
+        const tileCanvas = document.createElement("canvas");
+        tileCanvas.width = tileSize;
+        tileCanvas.height = tileSize;
+
         const tileCtx = tileCanvas.getContext("2d");
 
         tileCtx.fillStyle = "transparent";
@@ -69,25 +74,19 @@ OpenSeadragon.ImageTileSource = class extends OpenSeadragon.TileSource {
             0, 0, tileSize, tileSize
         );
 
-        return tileCanvas
-            .convertToBlob({ type: "image/png" })
-            .then(function (blob) {
-                const url = URL.createObjectURL(blob);
-                const img = new Image();
-                img.src = url;
-                return img;
-            });
+        return tileCanvas;
+
     }
 
     getImageInfo( url ){
-        Promise.resolve(this._fetchImage(url))
+        return Promise.resolve(this._fetchImage(url))
         .then(image=>{
             this.__image = image;
 
             this.width = image.naturalWidth;
             this.height = image.naturalHeight;
             this.aspectRatio = this.width / this.height;
-            this.dimensions = new OpenSeadragon.Point(this.width, this.height);
+            this.dimensions = new $.Point(this.width, this.height);
 
             this.__buildImagePyramid();
 
@@ -110,9 +109,8 @@ OpenSeadragon.ImageTileSource = class extends OpenSeadragon.TileSource {
 
     __buildImagePyramid() {
 
-        // Can't buid the pyramid if the image is non-CORS
-        if( !this.__buildPyramid || this.__image._nonCors){
-            this.__levels = [this.__image];
+        if( !this.__buildPyramid ){
+            this.__levels = [$.Utils.toCanvas(this.__image)];
             this._tileWidth = this.width;
             this._tileHeight = this.height;
             this.tileOverlap = 0;
@@ -132,36 +130,33 @@ OpenSeadragon.ImageTileSource = class extends OpenSeadragon.TileSource {
 
         this.__levels = [];
 
-        // Last (max) level = original image
-        let canvas = new OffscreenCanvas(w, h);
-        let ctx = canvas.getContext("2d");
-        ctx.drawImage(this.__image, 0, 0);
-        this.__levels.unshift(canvas);
+        let src = this.__image;
 
-        // Build downsampled levels until fits single tile
-        while (w > tileSize || h > tileSize) {
-            const nextW = Math.floor(w / 2);
-            const nextH = Math.floor(h / 2);
+        while (true) {                      //eslint-disable-line no-constant-condition
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
 
-            const nextCanvas = new OffscreenCanvas(nextW, nextH);
-            const nextCtx = nextCanvas.getContext("2d");
-
-            nextCtx.imageSmoothingEnabled = true;
-            nextCtx.imageSmoothingQuality = "high";
-
-            nextCtx.drawImage(
-                canvas,
-                0, 0, w, h,
-                0, 0, nextW, nextH
+            ctx.drawImage(
+                src,
+                0, 0, src.width, src.height,
+                0, 0, w, h
             );
 
-            this.__levels.unshift(nextCanvas);
+            this.__levels.unshift(canvas);
 
-            canvas = nextCanvas;
-            w = nextW;
-            h = nextH;
+            if (w <= tileSize && h <= tileSize){
+                break;
+            }
+
+            src = canvas;
+            w = Math.floor(w / 2);
+            h = Math.floor(h / 2);
         }
+
         // we don't need the original image anymore
         this.__image = undefined;
     }
 };
+}(OpenSeadragon));
