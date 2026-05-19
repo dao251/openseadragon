@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DZI TileSource Demo</title>
+    <script type="text/javascript" src='../../../build/openseadragon/openseadragon.js'></script>
+    <style type="text/css">
+
+        .openseadragon1 {
+            width: 1024px;
+            height: 768px;
+        }
+
+    </style>
+</head>
+<body>
+    <div>
+        <p>Big JPEG image - 90MB, 80MP (7479x11146 px)</p>
+    </div>
+    <div id="contentDiv" class="openseadragon1"></div>
+    <pre id="out"></pre>
+
+    <script id="code" type="text/javascript">
+
+        // const url = "../../data/MonaLisa.jpg";
+        // var tileSource = new OpenSeadragon.ImageTileSource ( {url: url, buildPyramid: true, tileSize: 256} );
+
+        var viewer = OpenSeadragon({
+            drawer: 'canvas',
+            id: "contentDiv",
+            prefixUrl: "../../../build/openseadragon/images/",
+            showRotationControl: true,
+            rotationIncrement: 22.5,
+            minZoomLevel: 0.01,
+            // springStiffness: 3,
+            tileSources:  "../../data/monalisa.dzi",
+
+        });
+    </script>
+    <script>
+        document.getElementById("out").textContent =
+            document.getElementById("code").textContent;
+    </script>
+</body>
+</html>
