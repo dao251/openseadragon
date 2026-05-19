@@ -58,15 +58,8 @@ $.ImageTileSource = class extends $.TileSource {
             return image;
         }
 
-        // const tileCanvas = new OffscreenCanvas(tileSize, tileSize);
-        const tileCanvas = document.createElement("canvas");
-        tileCanvas.width = tileSize;
-        tileCanvas.height = tileSize;
-
+        const tileCanvas = $.Utils.newOffscreenCanvas(tileSize, tileSize);
         const tileCtx = tileCanvas.getContext("2d");
-
-        tileCtx.fillStyle = "transparent";
-        tileCtx.fillRect(0, 0, tileSize, tileSize);
 
         tileCtx.drawImage(
             image,
@@ -110,7 +103,7 @@ $.ImageTileSource = class extends $.TileSource {
     __buildImagePyramid() {
 
         if( !this.__buildPyramid ){
-            this.__levels = [$.Utils.toCanvas(this.__image)];
+            this.__levels = [$.Utils.toOffscreenCanvas(this.__image)];
             this._tileWidth = this.width;
             this._tileHeight = this.height;
             this.tileOverlap = 0;
@@ -133,9 +126,7 @@ $.ImageTileSource = class extends $.TileSource {
         let src = this.__image;
 
         while (true) {                      //eslint-disable-line no-constant-condition
-            const canvas = document.createElement("canvas");
-            canvas.width = w;
-            canvas.height = h;
+            const canvas = $.Utils.newOffscreenCanvas(w, h);
             const ctx = canvas.getContext("2d");
 
             ctx.drawImage(

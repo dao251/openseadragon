@@ -117,7 +117,7 @@ $.ImageJob.prototype = {
         )
         // make sure it is fully loaded (e.g <img> comes from custom TileSource)
         .then( image => $.Utils.safeImageDecode(image))
-        .then( image => $.Utils.toCanvas(image) )
+        .then( image => $.Utils.toOffscreenCanvas(image) )
         .then( canvas =>{
             // we should react to abortion even if the image loading was successful
             // e.g. uncancelable HTML Image Fetch + timeout

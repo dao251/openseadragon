@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>DZI TileSource Demo</title>
-    <script type="text/javascript" src='../../../build/openseadragon/openseadragon.js'></script>
+    <script type="text/javascript" src='/build/openseadragon/openseadragon.js'></script>
     <style type="text/css">
 
         .openseadragon1 {
@@ -15,24 +15,21 @@
 <body>
     <div>
         <p>Big JPEG image - 90MB, 80MP (7479x11146 px)</p>
+        <p>tiled to PNG 256x256 no overlap</p>
     </div>
     <div id="contentDiv" class="openseadragon1"></div>
     <pre id="out"></pre>
 
     <script id="code" type="text/javascript">
 
-        // const url = "../../data/MonaLisa.jpg";
-        // var tileSource = new OpenSeadragon.ImageTileSource ( {url: url, buildPyramid: true, tileSize: 256} );
-
         var viewer = OpenSeadragon({
             drawer: 'canvas',
             id: "contentDiv",
-            prefixUrl: "../../../build/openseadragon/images/",
+            prefixUrl: "/build/openseadragon/images/",
             showRotationControl: true,
             rotationIncrement: 22.5,
             minZoomLevel: 0.01,
-            // springStiffness: 3,
-            tileSources:  "../../data/monalisa.dzi",
+            tileSources:  "/test/data/monalisa.dzi",
 
         });
     </script>

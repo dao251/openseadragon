@@ -2,14 +2,27 @@
  * OpenSeadragon - Utils
  */
 (function( $ ){
-OpenSeadragon.Utils = class {
+$.Utils = class {
+
+    static newCanvas (w, h) {
+        const canvas = document.createElement("canvas");
+        canvas.width  = w;
+        canvas.height = h;
+        return canvas;
+    }
+
+    static newOffscreenCanvas =
+        ( typeof OffscreenCanvas === "function" ?                   // eslint-disable-line compat/compat
+            (w, h) => new OffscreenCanvas(w, h) :                   // eslint-disable-line compat/compat
+            (w, h) => $.Utils.newCanvas(w, h)
+        );
 
     /**
      * Generates a strictly monotonic, collision-proof unique ID.
      * Uses a timestamp and a per-millisecond counter to ensure uniqueness.
      * @returns {string} A unique ID string.
      */
-    static uniqueId = (() => {
+    static uniqueId = (function () {
         let last = 0;
         let count = 0;
 
@@ -36,7 +49,7 @@ OpenSeadragon.Utils = class {
      *      In the case the parameter is not an HTMLImageElement, the method simply returns it wrapped in a Promise
      * @returns {Promise<HTMLImageElement|*>} A promise that resolves with the decoded image.
      */
-    static safeImageDecode = (image) => {
+    static safeImageDecode (image) {
 
         if(!(image instanceof Image)){              // don't throw if something else is passed (e.g. canvas element or ImageBitmap)
             return Promise.resolve(image);
@@ -71,7 +84,7 @@ OpenSeadragon.Utils = class {
                 })
                 .catch(fail);
         });
-    };
+    }
 
     /**
      * Creates an ImageBitmap from a Blob, with Safari-specific bug detection and fallback.
@@ -84,10 +97,7 @@ OpenSeadragon.Utils = class {
         const isBitmapDrawable = (bmp) => {
             return new Promise(resolve => {
                 try {
-                    // const canvas = new OffscreenCanvas(bmp.width, bmp.height);
-                    const canvas = document.createElement("canvas");
-                    canvas.width = bmp.width;
-                    canvas.height = bmp.height;
+                    const canvas = $.Utils.newOffscreenCanvas(bmp.width, bmp.height);
                     const ctx = canvas.getContext("2d", {willReadFrequently: true});
                     ctx.drawImage(bmp, 0, 0);
 
@@ -121,13 +131,9 @@ OpenSeadragon.Utils = class {
 
                 $.Utils.safeImageDecode(img)
                     .then((img) => {
-                        const canvas = document.createElement("canvas");
-                        canvas.width = img.naturalWidth;
-                        canvas.height = img.naturalHeight;
-
+                        const canvas = $.Utils.newCanvas(img.naturalWidth, img.naturalHeight);
                         const ctx = canvas.getContext("2d");
                         ctx.drawImage(img, 0, 0);
-
                         return window.createImageBitmap(canvas);
                     })
                     .then(resolve, reject)
@@ -157,18 +163,26 @@ OpenSeadragon.Utils = class {
     }
 
     /**
-     * Converts an image source to a canvas element.
-     * @param {HTMLImageElement|HTMLCanvasElement|HTMLVideoElement|ImageBitmap|OffscreenCanvas|VideoFrame|SVGImageElement} source - The image source to convert.
+     * Copies an image source to a new canvas element.
+     * @param {HTMLImageElement|HTMLCanvasElement|HTMLVideoElement|ImageBitmap|OffscreenCanvas|VideoFrame|SVGImageElement} source - The image source to copy.
      * @returns {HTMLCanvasElement} The resulting canvas element.
      */
     static toCanvas(source) {
-        const canvas = document.createElement("canvas");
-        canvas.width = source.width;
-        canvas.height = source.height;
-
+        const canvas = $.Utils.newCanvas(source.width, source.height);
         const ctx = canvas.getContext("2d");
         ctx.drawImage(source, 0, 0);
+        return canvas;
+    }
 
+    /**
+     * Copies an image source to a new OffscreenCanvas.
+     * @param {HTMLImageElement|HTMLCanvasElement|HTMLVideoElement|ImageBitmap|OffscreenCanvas|VideoFrame|SVGImageElement} source - The image source to copy.
+     * @returns {HTMLCanvasElement} The resulting OffscreenCanvas.
+     */
+    static toOffscreenCanvas(source) {
+        const canvas = $.Utils.newOffscreenCanvas(source.width, source.height);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(source, 0, 0);
         return canvas;
     }
 
@@ -183,8 +197,8 @@ OpenSeadragon.Utils = class {
             x instanceof HTMLCanvasElement ||
             x instanceof HTMLVideoElement ||
             x instanceof ImageBitmap ||
-            x instanceof OffscreenCanvas ||
-            (typeof window.VideoFrame !== "undefined" && x instanceof window.VideoFrame) ||     // eslint-disable-line compat/compat
+            (typeof OffscreenCanvas === "function" && x instanceof OffscreenCanvas) ||   // eslint-disable-line compat/compat
+            (typeof VideoFrame === "function" && x instanceof VideoFrame) ||             // eslint-disable-line compat/compat, no-undef
             x instanceof SVGImageElement
         );
     }
