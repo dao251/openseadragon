@@ -363,9 +363,10 @@ $.Tile.prototype = {
             const context = this.getImage();
             return context.canvas.width / (this.size.x * $.pixelDensityRatio);
         } catch(e){
-            $.console.warn(
-                '[Tile.drawCanvas] attempting to get tile scale %s when tile\'s not cached',
-                this.toString());
+            // DAO251: is this warning really needed ????
+            // $.console.warn(
+            //     '[Tile.drawCanvas] attempting to get tile scale %s when tile\'s not cached',
+            //     this.toString());
             return 1;
         }
     },

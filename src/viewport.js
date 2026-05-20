@@ -1165,13 +1165,15 @@ $.Viewport.prototype = {
         this._oldZoom    = this.zoomSpring.current.value;
         this._oldDegrees = this.degreesSpring.current.value;
 
-        var isAnimating = changed ||
-                          !this.zoomSpring.isAtTargetValue() ||
-                          !this.centerSpringX.isAtTargetValue() ||
-                          !this.centerSpringY.isAtTargetValue() ||
-                          !this.degreesSpring.isAtTargetValue();
+        //DAO251: guess we don't need to check target value
+        // var isAnimating = changed ||
+        //                   !this.zoomSpring.isAtTargetValue() ||
+        //                   !this.centerSpringX.isAtTargetValue() ||
+        //                   !this.centerSpringY.isAtTargetValue() ||
+        //                   !this.degreesSpring.isAtTargetValue();
 
-        return isAnimating;
+        // return isAnimating;
+        return changed;
     },
 
     // private - pass true to use spring, or a number for degrees for immediate rotation
