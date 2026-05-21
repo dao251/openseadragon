@@ -1,2 +1,13 @@
-defaults
+# Modern enough for Canvas2D tile rendering
+Chrome >= 70
+Firefox >= 70
+Edge >= 79
+Safari >= 14
+Opera >= 70
+iOS >= 14
+Samsung >= 10
+Android >= 70
+
+# Exclude browsers that cannot run even basic Canvas2D
 not op_mini all
+not dead
