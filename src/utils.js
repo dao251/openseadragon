@@ -4,7 +4,7 @@
 (function( $ ){
 $.Utils = class {
 
-    static newCanvas (w, h) {
+    static newCanvas (w = 300, h = 150) {
         const canvas = document.createElement("canvas");
         canvas.width  = w;
         canvas.height = h;
@@ -12,9 +12,9 @@ $.Utils = class {
     }
 
     static newOffscreenCanvas =
-        ( typeof OffscreenCanvas === "function" ?                   // eslint-disable-line compat/compat
-            (w, h) => new OffscreenCanvas(w, h) :                   // eslint-disable-line compat/compat
-            (w, h) => $.Utils.newCanvas(w, h)
+        ( typeof OffscreenCanvas === "function" ?                               // eslint-disable-line compat/compat
+            (w = 300, h = 150) => new OffscreenCanvas(w, h) :                   // eslint-disable-line compat/compat
+            (w = 300, h = 150) => $.Utils.newCanvas(w, h)
         );
 
     /**

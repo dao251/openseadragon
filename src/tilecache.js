@@ -9,8 +9,8 @@
  * It uses a Map to store tiles, preserving insertion order for LRU/FIFO behavior.
  */
 $.TileCache = class {
-    #limit; // Maximum number of tiles the cache can hold.
-    #map;   // Internal Map to store cache entries.
+    __limit; // Maximum number of tiles the cache can hold.
+    __map;   // Internal Map to store cache entries.
 
     /**
      * Constructor initializes the cache with a maximum size.
@@ -18,8 +18,8 @@ $.TileCache = class {
      * @param {number} options.maxImageCacheCount - Maximum number of tiles to cache (default: 200).
      */
     constructor(options = {maxImageCacheCount: 200} ) {
-        this.#limit = options.maxImageCacheCount;
-        this.#map = new Map();                          // Preserves insertion order for LRU/FIFO.
+        this.__limit = options.maxImageCacheCount;
+        this.__map = new Map();                          // Preserves insertion order for LRU/FIFO.
     }
 
     /**
@@ -28,7 +28,7 @@ $.TileCache = class {
      * @returns {boolean} True if the tile exists, false otherwise.
      */
     has(key){
-        return this.#map.has(key);
+        return this.__map.has(key);
     }
 
     /**
@@ -37,7 +37,7 @@ $.TileCache = class {
      * @returns {*} The cached tile, or undefined if not found.
      */
     get(key) {
-        return this.#map.get(key);
+        return this.__map.get(key);
     }
 
     /**
@@ -46,7 +46,7 @@ $.TileCache = class {
      * @returns {*} The cached tile, or undefined if not found.
      */
     use(key) {
-        const map = this.#map;
+        const map = this.__map;
         const value = map.get(key);
         map.delete(key);                                // Remove the old position.
         if (value !== undefined) {
@@ -61,12 +61,12 @@ $.TileCache = class {
      * @param {*} value - The tile to cache. Must not be undefined.
      */
     set(key, value) {
-        const map = this.#map;
+        const map = this.__map;
         map.delete(key);                                // Remove old position if it exists.
         if (value !== undefined){                       // MUST NEVER insert undefined!!!
             map.set(key, value);
         }
-        if ( map.size > this.#limit) {
+        if ( map.size > this.__limit) {
             const oldestKey = map.keys().next().value;  // Get the oldest key.
             map.delete(oldestKey);                      // Remove the oldest entry.
         }
@@ -90,9 +90,9 @@ $.TileCache = class {
      */
     clearTilesFor( tiledImage ){
         const tileSourceId = tiledImage.source.hash;
-        for (const [key] of this.#map) {
+        for (const [key] of this.__map) {
             if ( key.split("/")[0] === tileSourceId){
-                this.#map.delete(key);
+                this.__map.delete(key);
             }
         }
     }
@@ -102,7 +102,7 @@ $.TileCache = class {
      * @returns {number} The number of cached tiles.
      */
     numTilesLoaded(){
-        return this.#map.size;
+        return this.__map.size;
     }
 };
 
