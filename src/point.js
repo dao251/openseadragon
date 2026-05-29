@@ -110,6 +110,32 @@ $.Point = class {
     }
 
     /**
+     * Scales this point (multiplies by a scale vector) and return a new Point.
+     * @function
+     * @param {OpenSeadragon.Point} scale The scale vector to multiply components by.
+     * @returns {OpenSeadragon.Point} A new point
+     */
+    scale( scale ) {
+        return new OpenSeadragon.Point(
+            this.x * scale.x,
+            this.y * scale.y
+        );
+    }
+
+    /**
+     * Unscales this point (divides by a scale vector) and return a new Point.
+     * @function
+     * @param {OpenSeadragon.Point} scale The scale vector to divide components by.
+     * @returns {OpenSeadragon.Point} A new point
+     */
+    unscale( scale ) {
+        return new OpenSeadragon.Point(
+            this.x / scale.x,
+            this.y / scale.y
+        );
+    }
+
+    /**
      * Divide this point by a factor and return a new Point.
      * @function
      * @param {number} factor The factor to divide vector components.
