@@ -556,8 +556,48 @@ $.Rect.prototype = {
             (Math.round(this.height * 100) / 100) + ", " +
             (Math.round(this.degrees * 100) / 100) + "deg" +
             "]";
-    }
+    },
+
+    //DAO251: some new transformations //TODO: documenting
+    //   only work for non-rotated rectangles !!!! //TODO: accurate calculations
+    scale: function(scale) {
+        return new $.Rect(
+            this.x * scale.x,
+            this.y * scale.y,
+            this.width * scale.x,
+            this.height * scale.y,
+            this.degrees);
+    },
+
+    unscale: function(scale) {
+        return new $.Rect(
+            this.x / scale.x,
+            this.y / scale.y,
+            this.width / scale.x,
+            this.height / scale.y,
+            this.degrees);
+    },
+
+    apply: function(func){
+            const x = func(this.x);
+            const y = func(this.y);
+            return new $.Rect(
+                x,
+                y,
+                func(this.x + this.width) - x,
+                func(this.y + this.height) - y,
+                this.degrees,
+            );
+    },
+
+    flip: function( pivotX ){
+        return new $.Rect(
+            pivotX * 2 - this.x - this.width,
+            this.y,
+            this.width,
+            this.height,
+            this.degrees
+        );
+    },
 };
-
-
 }(OpenSeadragon));
