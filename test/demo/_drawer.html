@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>DZI TileSource Demo</title>
-    <script type="text/javascript" src='/build/openseadragon/openseadragon.js'></script>
+    <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
     <style type="text/css">
         .openseadragon1 {
             width: 512px;
@@ -36,7 +36,7 @@
     <script id="code" type="text/javascript">
 
         const viewerOptions = {
-            prefixUrl: "/build/openseadragon/images/",
+            prefixUrl: "../../build/openseadragon/images/",
 
             showRotationControl: true,
             showFlipControl: true,
@@ -47,10 +47,9 @@
 
             minZoomLevel: 0.01,
             maxZoomPixelRatio: 2.00,
-            minPixelRatio: 1/OpenSeadragon.pixelDensityRatio,
 
             // debugMode: true,
-            immediateRender: true,
+            // immediateRender: true,
         };
 
         let viewer1 = OpenSeadragon({...viewerOptions, ...{drawer: 'drawer', id: "content1"} });
@@ -58,10 +57,10 @@
 
         const images =[
             {
-                tileSource: {type:"image", url:"/test/data/BBlue.png"},
+                tileSource: {type:"image", url:"../../test/data/BBlue.png", tileWidth: 131, tileHeight: 251},
             },
             {
-                tileSource: "/test/data/monalisa.dzi",
+                tileSource: "../../test/data/monalisa.dzi",
             },
         ]
 

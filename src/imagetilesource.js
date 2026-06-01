@@ -35,10 +35,12 @@
 (function( $ ){
 $.ImageTileSource = class extends $.TileSource {
 
-    constructor({url, buildPyramid = true, tileSize = 256}){
+    constructor({url, buildPyramid = true, tileSize = 256, tileWidth, tileHeight }){
         super(url);
         this.__buildPyramid = buildPyramid;
         this.__tileSize = tileSize;
+        this.__tileWidth = (tileWidth ? tileWidth : tileSize);
+        this.__tileHeight = (tileHeight ? tileHeight : tileSize);
         this.ready = false;
     }
 
@@ -52,19 +54,21 @@ $.ImageTileSource = class extends $.TileSource {
 
     getTileImage(level, x, y){
         const image = this.__levels[level];
-        const tileSize = this.__tileSize;
+        // const tileSize = this.__tileSize;
+        const tileWidth = this.__tileWidth;
+        const tileHeight = this.__tileHeight;
 
         if(!this.__buildPyramid){
             return image;
         }
 
-        const tileCanvas = $.Utils.newOffscreenCanvas(tileSize, tileSize);
+        const tileCanvas = $.Utils.newOffscreenCanvas(tileWidth, tileHeight);
         const tileCtx = tileCanvas.getContext("2d");
 
         tileCtx.drawImage(
             image,
-            x * tileSize, y * tileSize, tileSize, tileSize,
-            0, 0, tileSize, tileSize
+            x * tileWidth, y * tileHeight, tileWidth, tileHeight,
+            0, 0, tileWidth, tileHeight
         );
 
         return tileCanvas;
@@ -113,9 +117,9 @@ $.ImageTileSource = class extends $.TileSource {
         // Building the pyramid
         //   actually not tiled pyramid, but simple image pyramid
         //   tiling is done by getTileImage()
-        const tileSize = this.__tileSize;
-        this._tileWidth  = tileSize;
-        this._tileHeight = tileSize;
+        // const tileSize = this.__tileSize;
+        this._tileWidth  = this.__tileWidth;
+        this._tileHeight = this.__tileHeight;
         this.tileOverlap = 0;
 
         let w = this.__image.width;
@@ -137,13 +141,13 @@ $.ImageTileSource = class extends $.TileSource {
 
             this.__levels.unshift(canvas);
 
-            if (w <= tileSize && h <= tileSize){
+            if (w <= this.__tileWidth && h <= this.__tileHeight){
                 break;
             }
 
             src = canvas;
-            w = Math.floor(w / 2);
-            h = Math.floor(h / 2);
+            w >>= 1;
+            h >>= 1;
         }
 
         // we don't need the original image anymore
