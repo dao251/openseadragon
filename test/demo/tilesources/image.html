@@ -3,6 +3,7 @@
 <head>
     <title>Image TileSource Demo</title>
     <script type="text/javascript" src='/build/openseadragon/openseadragon.js'></script>
+    <!-- <script type="text/javascript" src='/build/openseadragon/v6/openseadragon.js'></script> -->
     <style type="text/css">
 
         .openseadragon1 {
@@ -23,17 +24,21 @@
     <script id="code" type="text/javascript">
 
         const url = "/test/data/MonaLisa.jpg";
-        var tileSource = new OpenSeadragon.ImageTileSource ( {url: url, buildPyramid: true, tileSize: 256} );
+        // var tileSource = new OpenSeadragon.ImageTileSource ( {url: url, buildPyramid: false, tileSize: 256} );
+        var tileSource = new OpenSeadragon.ImageTileSource ( {url: url, buildPyramid: true} );
 
         var viewer = OpenSeadragon({
-            drawer: 'canvas',
+            drawer: 'drawer',
+            // drawer: 'canvas',
             id: "contentDiv",
             prefixUrl: "/build/openseadragon/images/",
             showRotationControl: true,
             rotationIncrement: 22.5,
             minZoomLevel: 0.01,
+            maxZoomPixelRatio: 2.00,
+            maxTilesPerFrame: 100,
             tileSources:  tileSource,
-
+            debugMode: true,
         });
     </script>
     <script>
