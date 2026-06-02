@@ -5,6 +5,7 @@
     <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
     <style type="text/css">
         .openseadragon1 {
+            /* left: 1px; */
             width: 512px;
             height: 768px;
             border: 1px solid rgba(0, 0, 0, 0.15);
@@ -41,27 +42,45 @@
             showRotationControl: true,
             showFlipControl: true,
             showNavigator: true,
+            // wrapHorizontal:     true,  // is NOT supported yet !!!!!!!!
 
             rotationIncrement: 22.5,
-            zoomPerScroll: Math.sqrt(Math.sqrt(2)),
+            zoomPerScroll: Math.sqrt(Math.SQRT2),
 
             minZoomLevel: 0.01,
             maxZoomPixelRatio: 2.00,
+            // minPixelRatio: 1/window.devicePixelRatio,
 
             // debugMode: true,
-            // immediateRender: true,
         };
 
         let viewer1 = OpenSeadragon({...viewerOptions, ...{drawer: 'drawer', id: "content1"} });
         let viewer2 = OpenSeadragon({...viewerOptions, ...{drawer: 'canvas', id: "content2"} });
 
         const images =[
-            {
-                tileSource: {type:"image", url:"../../test/data/BBlue.png", tileWidth: 131, tileHeight: 251},
-            },
+            // {
+            //     tileSource: { type:"image", url:"../../test/data/BBlue.png", tileWidth: 131, tileHeight: 251 },
+            // },
+            // {
+            //     tileSource: { type:"image", url:"../../test/data/gray_4096.png", tileSize: 256 },
+            // },
             {
                 tileSource: "../../test/data/monalisa.dzi",
             },
+            // {
+            //     tileSource: { type: 'openstreetmaps' }
+            // },
+            // {
+            //     tileSource: {
+            //         iipsrv: "https://merovingio.c2rmf.cnrs.fr/fcgi-bin/iipsrv.fcgi",
+            //         image:  "77917.ome.tif",
+            //         format: "jpg",
+            //         transform:  {
+            //             contrast: 1.5,
+            //             twist: "[0,0,1;0,1,0;0.9,0,0.1]"
+            //         }
+            //     }
+            // }
         ]
 
         const activeImage = images.length - 1;

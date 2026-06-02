@@ -34,6 +34,32 @@
 
 (function( $ ){
 
+//DAO251: helper functions //TODO: move to the TileImage class
+
+function getCurrentZoomLevel( tiledImage ) {
+    const zoom = tiledImage.viewport.getZoom(true);
+    const imageZoom = tiledImage.viewportToImageZoom(zoom);
+
+    //DAO251: Need to take into account minPixelRatio (who chose this f... name, what is its physical meaning?????)
+    const pixelRatio = 1 / imageZoom * Math.max(tiledImage.minPixelRatio, 1 / $.pixelDensityRatio);   // Math.max : no sense to fall below device resolution
+
+    const maxLevel =  tiledImage.source.maxLevel;
+    const idealLevel = maxLevel - Math.log2(pixelRatio);
+    const downsample = 2 ** (maxLevel - idealLevel);
+
+    // √2 hysteresis band around the ideal level
+    return ( pixelRatio < downsample / Math.SQRT2 ?
+                Math.floor(idealLevel) :
+            ( pixelRatio > downsample * Math.SQRT2 ?
+                Math.floor(idealLevel) :
+                Math.round(idealLevel)
+        ));
+}
+
+
+
+
+
     const OpenSeadragon = $; // (re)alias back to OpenSeadragon for JSDoc
 /**
  * @class OpenSeadragon.CanvasDrawer
@@ -182,16 +208,12 @@ class Drawer extends OpenSeadragon.DrawerBase{
     }
 
     drawTiledImage( tiledImage ){
-        /* eslint-disable */
-
 
         let drawArea = tiledImage.getDrawArea();
         if (!drawArea){
             return;
         }
 
-        const zoom = this.viewport.getZoom(true);
-        const imageZoom = tiledImage.viewportToImageZoom(zoom);
         const imageDims = tiledImage.getContentSize();
         // const imageRect = new $.Rect(0, 0, imageDims.x, imageDims.y);
 
@@ -201,9 +223,7 @@ class Drawer extends OpenSeadragon.DrawerBase{
         const tileHeight = tiledImage.source.getTileHeight(maxLevel);       //DAO251: replace with just .tileHeight     // we only support 2x2 tile pyramids !!!!
         const tileDims = new $.Point(tileWidth, tileHeight);
 
-        const currentLevel = Math.max( minLevel, Math.min( maxLevel,
-            Math.round(maxLevel - Math.log2( 1 / imageZoom / $.pixelDensityRatio ))    // we only support 2x2 tile pyramids !!!!
-        ));
+        const currentLevel =  Math.max(minLevel, Math.min(maxLevel, getCurrentZoomLevel( tiledImage ) ));
 
 
         //TODO: rewrite integer arithmetics using BigInt here, otherwise we are limited to 2^31 pixels :-)
@@ -214,7 +234,7 @@ class Drawer extends OpenSeadragon.DrawerBase{
 
         // drawArea in image pixels, then round
         let imageDrawArea = drawArea.times(imageDims.x).apply(Math.round);
-        const sewImageDims = imageDims.apply(downSample);
+        //  const sewImageDims = imageDims.apply(downSample);
 
         // clip here !!!
         const clipRect = tiledImage.getClip();
@@ -224,7 +244,7 @@ class Drawer extends OpenSeadragon.DrawerBase{
 
         // flip then
         if( tiledImage.flipped ){
-            imageDrawArea =  imageDrawArea.flip(imageDims.x/2);
+            imageDrawArea =  imageDrawArea.flip( imageDims.x / 2 );
         }
 
         const imageSewingTileDims = tileDims.apply(upSample);       // current level tile dimensions in image coordinates.
@@ -274,8 +294,8 @@ class Drawer extends OpenSeadragon.DrawerBase{
                         sewCtx.translate(posX, posY);
                         sewCtx.strokeRect( 0.5, 0.5, tileWidth - 1, tileHeight - 1);
                         if (tiledImage.flipped){
-                            sewCtx.translate(tileWidth,0);
-                            sewCtx.scale(-1,1);
+                            sewCtx.translate(tileWidth, 0);
+                            sewCtx.scale(-1, 1);
                         }
                         sewCtx.fillText(`${level}:${x}:${y}`, 10, 25);
                     }
@@ -298,7 +318,7 @@ class Drawer extends OpenSeadragon.DrawerBase{
             const ctx = this.context;
 
             if( tiledImage.flipped ){       // restore drawArea position
-                imageDrawArea = imageDrawArea.flip(imageDims.x/2);
+                imageDrawArea = imageDrawArea.flip( imageDims.x / 2 );
             }
 
             let tl = imageDrawArea.getTopLeft();
@@ -346,7 +366,6 @@ class Drawer extends OpenSeadragon.DrawerBase{
         }
         this.context.restore();
     }
-    /* eslint-enable */
 }
 
 $.Drawer = Drawer;
