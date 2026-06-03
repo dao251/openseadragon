@@ -590,6 +590,18 @@ $.Rect.prototype = {
             );
     },
 
+    ceil: function(){
+            const x = Math.floor(this.x);
+            const y = Math.floor(this.y);
+            return new $.Rect(
+                x,
+                y,
+                Math.ceil(this.x + this.width) - x,
+                Math.ceil(this.y + this.height) - y,
+                this.degrees,
+            );
+    },
+
     flip: function( pivotX ){
         return new $.Rect(
             pivotX * 2 - this.x - this.width,
