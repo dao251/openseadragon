@@ -4,6 +4,13 @@
 (function( $ ){
 $.Utils = class {
 
+    /**
+     * Create a standard HTMLCanvasElement at the requested width and height.
+     *
+     * @param {number} [w=300] - The width of the canvas in CSS pixels.
+     * @param {number} [h=150] - The height of the canvas in CSS pixels.
+     * @returns {HTMLCanvasElement} A newly-created canvas element.
+     */
     static newCanvas (w = 300, h = 150) {
         const canvas = document.createElement("canvas");
         canvas.width  = w;
@@ -11,11 +18,41 @@ $.Utils = class {
         return canvas;
     }
 
+    /**
+     * Create a cross-platform offscreen canvas instance.
+     * Uses OffscreenCanvas when available and falls back to a normal canvas element.
+     *
+     * @type {function(number=, number=): HTMLCanvasElement|OffscreenCanvas}
+     */
     static newOffscreenCanvas =
         ( typeof OffscreenCanvas === "function" ?                               // eslint-disable-line compat/compat
             (w = 300, h = 150) => new OffscreenCanvas(w, h) :                   // eslint-disable-line compat/compat
             (w = 300, h = 150) => $.Utils.newCanvas(w, h)
         );
+
+    /**
+     * Align an element to the device pixel grid in order to avoid blurry rendering.
+     * This adjusts the element's transform so its layout box is snapped to whole
+     * device pixels while preserving any existing transform.
+     *
+     * @param {Element} el - The DOM element to snap.
+     */
+    static snapElementToDevicePixels(el) {
+        const dpr = window.devicePixelRatio;    // dont use $.pixelDensityRatio here !!! these are not always the same
+        // Get current rendered box
+        const rect = el.getBoundingClientRect();
+        // Compute aligned CSS pixel coordinates
+        const snappedLeft = Math.round(rect.left * dpr) / dpr;
+        const snappedTop = Math.round(rect.top * dpr) / dpr;
+        // Apply correction offset
+        const dx = snappedLeft - rect.left;
+        const dy = snappedTop - rect.top;
+        // Apply via transform (safe, non‑layout‑breaking)
+        const prev = getComputedStyle(el).transform;
+        const base = prev === "none" ? "" : prev;
+        el.style.transform = `${base} translate(${dx}px, ${dy}px)`;
+    }
+
 
     /**
      * Generates a strictly monotonic, collision-proof unique ID.
@@ -28,14 +65,12 @@ $.Utils = class {
 
         return () => {
             const now = Date.now();
-
             if (now !== last) {
                 last = now;
                 count = 0;
             } else {
                 count++;
             }
-
             return (
                 now.toString(36).padStart(8, "0") +
                 count.toString(36).padStart(4, "0")
@@ -50,8 +85,8 @@ $.Utils = class {
      * @returns {Promise<HTMLImageElement|*>} A promise that resolves with the decoded image.
      */
     static safeImageDecode (image) {
-
-        if(!(image instanceof Image)){              // don't throw if something else is passed (e.g. canvas element or ImageBitmap)
+        // don't throw (just return) if something else is passed (e.g. canvas element or ImageBitmap)
+        if(!(image instanceof Image)){
             return Promise.resolve(image);
         }
 
