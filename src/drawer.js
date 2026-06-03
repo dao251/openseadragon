@@ -1,66 +1,156 @@
 /*
  * OpenSeadragon - Drawer
  *
- * Copyright (C) 2009 CodePlex Foundation
- * Copyright (C) 2010-2024 OpenSeadragon contributors
+ * Copyright (C) 2010-2026 OpenSeadragon contributors
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- * - Redistributions of source code must retain the above copyright notice,
- *   this list of conditions and the following disclaimer.
- *
- * - Redistributions in binary form must reproduce the above copyright
- *   notice, this list of conditions and the following disclaimer in the
- *   documentation and/or other materials provided with the distribution.
- *
- * - Neither the name of CodePlex Foundation nor the names of its
- *   contributors may be used to endorse or promote products derived from
- *   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
- * TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 (function( $ ){
+const OpenSeadragon = $; // (re)alias back to OpenSeadragon for JSDoc
 
-//DAO251: helper functions //TODO: move to the TileImage class
+// helper functions and a class
+//TODO: move to the TiledImage class
 
-function getCurrentZoomLevel( tiledImage ) {
+function getZoomLevel( tiledImage ) {
     const zoom = tiledImage.viewport.getZoom(true);
     const imageZoom = tiledImage.viewportToImageZoom(zoom);
 
-    //DAO251: Need to take into account minPixelRatio (who chose this f... name, what is its physical meaning?????)
-    const pixelRatio = 1 / imageZoom * Math.max(tiledImage.minPixelRatio, 1 / $.pixelDensityRatio);   // Math.max : no sense to fall below device resolution
+    //DAO251: Need to take into account .minPixelRatio (who chose this f... name, what is its physical meaning?????)
+    const pixelRatio = 1 / imageZoom *
+        Math.max(tiledImage.minPixelRatio, 1 / $.pixelDensityRatio);  //  no sense to exceed the screen resolution
 
     const maxLevel =  tiledImage.source.maxLevel;
     const idealLevel = maxLevel - Math.log2(pixelRatio);
     const downsample = 2 ** (maxLevel - idealLevel);
 
     // √2 hysteresis band around the ideal level
-    return ( pixelRatio < downsample / Math.SQRT2 ?
+    const level = ( pixelRatio < downsample / Math.SQRT2 ?
                 Math.floor(idealLevel) :
             ( pixelRatio > downsample * Math.SQRT2 ?
-                Math.floor(idealLevel) :
-                Math.round(idealLevel)
+                Math.ceil(idealLevel) :
+            Math.round(idealLevel)
         ));
+    return level;
 }
 
+//TODO: Make Composite a class, probably after moving to TiledImage ??
+class Composite {
+    constructor (tiledImage, level){
+        this.tiledImage = tiledImage;
+        this.level = level;
+    }
 
+    // returns true if the tile was drawn
+    drawTile(level, x, y){
+        return false;
+    }
+}
+void Composite;
 
+function getComposite( tiledImage, level ) {
 
+    let drawArea = tiledImage.getDrawArea();
+    if (!drawArea){
+        return undefined;
+    }
 
-    const OpenSeadragon = $; // (re)alias back to OpenSeadragon for JSDoc
+    const imgSize = tiledImage.getContentSize();
+    const maxLevel =  tiledImage.source.maxLevel;
+
+    const tileWidth = tiledImage.source.getTileWidth(maxLevel);         //DAO251: replace with just .tileWidth      // we only support 2x2 tile pyramids !!!!
+    const tileHeight = tiledImage.source.getTileHeight(maxLevel);       //DAO251: replace with just .tileHeight     // we only support 2x2 tile pyramids !!!!
+    const tileSize = new $.Point(tileWidth, tileHeight);
+
+    const levelScale = 2 ** ( maxLevel - level );
+
+    // drawArea Rectangle in image pixels (expanded to integer boundaries)
+    let imgDrawArea = drawArea.times(imgSize.x).ceil();
+
+    // clip here
+    const imgClip = tiledImage.getClip();       // clip area in image coords
+    if( imgClip ){
+        imgDrawArea = imgDrawArea.intersection(imgClip);
+    }
+
+    // flip
+    //DAO251: drawArea should have had a negative width, but it doesn't.
+    //      so we have to flip (and then flip back)
+    if( tiledImage.flipped ){
+        imgDrawArea =  imgDrawArea.flip( imgSize.x / 2 );
+    }
+
+    const imgTileSize = tileSize.times(levelScale);                             // tileSize in image pixels
+    const tilComposite = imgDrawArea.unscale(imgTileSize).ceil();               // composite context rectangle in tile numbers
+    const lyrComposite = tilComposite.scale(tileSize);                          // Composite context rectangle in level pixels
+    const lyrDrawArea = imgDrawArea.times( 1 / levelScale ).ceil();              // DrawArea in level pixels
+
+    if ( lyrComposite.width <= 0 || lyrComposite.height <= 0){    // to be on the safe side
+        return undefined;
+    }
+
+    // stich tiles on compositeCanvas
+    const compositeCanvas = $.Utils.newOffscreenCanvas(lyrComposite.width, lyrComposite.height);
+    const compositeContext = compositeCanvas.getContext('2d');
+
+    compositeContext.translate( -lyrComposite.x, -lyrComposite.y );
+
+    // TODO: make it a separate method after moving to TiledImage class
+    function drawTile( level, x, y){
+        const numTiles = tiledImage.source.getNumTiles(level);                    //DAO251: TiledImage._getTile need this for some reason ?????
+        const tile = tiledImage._getTile(x, y, level, 0, numTiles);
+
+        const posX = x * tileWidth;             // do not use compositeContext.translate here !!!! context.save()/restore() are not free
+        const posY = y * tileHeight;
+
+        if (tile.loaded){
+            const tileImage = tile.getImage();
+            compositeContext.drawImage(tileImage, posX, posY);
+        }
+
+        if (tiledImage.debugMode){
+            compositeContext.save(); // OK in debug mode
+            {
+                // styles for debugMode
+                compositeContext.strokeStyle = "rgba(255, 63, 255)";
+                compositeContext.fillStyle = "rgba(255, 63, 255)";
+                compositeContext.font = "20px monospace";
+                compositeContext.lineWidth = 1;
+
+                compositeContext.translate(posX, posY);
+                compositeContext.strokeRect( 0.5, 0.5, tileWidth - 1, tileHeight - 1);
+                if (tiledImage.flipped){
+                    compositeContext.textAlign = "right";
+                    compositeContext.scale(-1, 1);
+                }
+                compositeContext.fillText(`  ${level}:${x}:${y}  `, 0, 25);
+            }
+            compositeContext.restore();
+        }
+
+    }
+
+    for( let x = 0; x < tilComposite.width; x++ ){
+        for( let y = 0; y < tilComposite.height; y++ ){
+            drawTile( level, tilComposite.x + x, tilComposite.y + y);
+        }
+    }
+
+    // restore drawArea position, see comments above
+    if( tiledImage.flipped ){
+        imgDrawArea = imgDrawArea.flip( imgSize.x / 2 );
+    }
+
+    const composite = {
+        context: compositeContext,
+        lyrDrawArea: lyrDrawArea,
+        imgDrawArea: imgDrawArea,
+        imgSize: imgSize,
+        lyrComposite: lyrComposite,
+    };
+
+    return composite;
+}
+
 /**
  * @class OpenSeadragon.CanvasDrawer
  * @extends OpenSeadragon.DrawerBase
@@ -72,18 +162,20 @@ function getCurrentZoomLevel( tiledImage ) {
  * @param {Number} [options.debugGridColor] - See debugGridColor in {@link OpenSeadragon.Options} for details.
  */
 
-class Drawer extends OpenSeadragon.DrawerBase{
+$.Drawer = class extends OpenSeadragon.DrawerBase{
 
     constructor(options){
         super(options);
-
         this.context = this.canvas.getContext( '2d' );
-
-        // Since the tile-drawn and tile-drawing events are fired by this drawer, make sure handlers can be added for them
-        this.viewer.allowEventHandler("tile-drawn");
-        this.viewer.allowEventHandler("tile-drawing");
-
     }
+
+    /**
+     * Destroy the drawer
+     */
+    destroy() {
+        this.canvas.remove();
+    }
+
 
     /**
      * @returns {Boolean} true if canvas is supported by the browser, otherwise false
@@ -101,23 +193,8 @@ class Drawer extends OpenSeadragon.DrawerBase{
      * @returns {Element} the canvas to draw into
      */
     _createDrawingElement(){
-        let canvas = $.makeNeutralElement("canvas");
-        let viewportSize = this._calculateCanvasSize();
-        canvas.width = viewportSize.x;
-        canvas.height = viewportSize.y;
+        const canvas = $.Utils.newCanvas();
         return canvas;
-    }
-
-    /**
-     * Draws the TiledImages
-     */
-    draw(tiledImages) {
-        this._prepareNewFrame(); // prepare to draw a new frame
-        for(const tiledImage of tiledImages){
-            if (tiledImage.opacity !== 0) {
-                this.drawTiledImage(tiledImage);
-            }
-        }
     }
 
     /**
@@ -128,15 +205,7 @@ class Drawer extends OpenSeadragon.DrawerBase{
     }
 
     /**
-     * Destroy the drawer (unload current loaded tiles)
-     */
-    destroy() {
-        this.canvas.remove(); //???
-    }
-
-
-    /**
-     * Turns image smoothing on or off for this viewer. Note: Ignored in some (especially older) browsers that do not support this property.
+     * Turns image smoothing on or off for this viewer.
      *
      * @function
      * @param {Boolean} [imageSmoothingEnabled] - Whether or not the image is
@@ -145,186 +214,65 @@ class Drawer extends OpenSeadragon.DrawerBase{
      */
     setImageSmoothingEnabled(imageSmoothingEnabled){
         this._imageSmoothingEnabled = !!imageSmoothingEnabled;
-        // this._updateImageSmoothingEnabled(this.context);
         this.viewer.forceRedraw();
     }
 
     /**
-     * Fires the tile-drawing event.
-     * @private
+     * Draws the TiledImages
      */
-    _raiseTileDrawingEvent(tiledImage, context, tile, rendered){
-        /**
-         * This event is fired just before the tile is drawn giving the application a chance to alter the image.
-         *
-         * NOTE: This event is only fired when the 'canvas' drawer is being used
-         *
-         * @event tile-drawing
-         * @memberof OpenSeadragon.Viewer
-         * @type {object}
-         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-         * @property {OpenSeadragon.Tile} tile - The Tile being drawn.
-         * @property {OpenSeadragon.TiledImage} tiledImage - Which TiledImage is being drawn.
-         * @property {CanvasRenderingContext2D} context - The HTML canvas context being drawn into.
-         * @property {CanvasRenderingContext2D} rendered - The HTML canvas context containing the tile imagery.
-         * @property {?Object} userData - Arbitrary subscriber-defined object.
-         */
-        this.viewer.raiseEvent('tile-drawing', {
-            tiledImage: tiledImage,
-            context: context,
-            tile: tile,
-            rendered: rendered
-        });
-    }
-
-    /**
-     * Clears the Drawer so it's ready to draw another frame.
-     * @private
-     *
-     */
-    _prepareNewFrame() {
-        var viewportSize = this._calculateCanvasSize();
+    draw(tiledImages) {
+        // prepare new frame
+        const size = this.viewport.getContainerSize()
+            .times($.pixelDensityRatio).apply(Math.ceil);      // must be integer (in device physical pixels)
 
         // clears the canvas
-        this.canvas.width = viewportSize.x;
-        this.canvas.height = viewportSize.y;
+        this.canvas.width = size.x;
+        this.canvas.height = size.y;
 
-        const flipViewport = this.viewer.viewport.getFlip();
-        if(!!flipViewport !== !!(this.context.getTransform().a < 0)){
+        // flip the viewport //DAO251: why here ?
+        if( this.viewer.viewport.getFlip() ){
             this.context.scale(-1, 1);
             this.context.translate(-this.context.canvas.width, 0);
         }
 
-    }
+        //align the canvas to device pixels (for the cost of 0.03-0.15 ms)
+        $.Utils.snapElementToDevicePixels(this.canvas);
 
-
-// DAO251: ----------------------------------------------
-
-    static _applyDebugStyles( sewCtx ){
-        sewCtx.strokeStyle = "rgba(255, 63, 255)";
-        sewCtx.fillStyle = "rgba(255, 63, 255)";
-        sewCtx.font = "20px monospace";
-        sewCtx.lineWidth = 1;
-    }
-
-    drawTiledImage( tiledImage ){
-
-        let drawArea = tiledImage.getDrawArea();
-        if (!drawArea){
-            return;
+        // draw tiledImages onto this.context
+        for(const tiledImage of tiledImages){
+            if (tiledImage.opacity !== 0) {
+                this.__drawTiledImage(tiledImage);
+            }
         }
+    }
 
-        const imageDims = tiledImage.getContentSize();
-        // const imageRect = new $.Rect(0, 0, imageDims.x, imageDims.y);
+    // private, newer call outside the Drawer class
+    __drawTiledImage( tiledImage ){
 
         const maxLevel =  tiledImage.source.maxLevel;
         const minLevel =  tiledImage.source.minLevel;
-        const tileWidth = tiledImage.source.getTileWidth(maxLevel);         //DAO251: replace with just .tileWidth      // we only support 2x2 tile pyramids !!!!
-        const tileHeight = tiledImage.source.getTileHeight(maxLevel);       //DAO251: replace with just .tileHeight     // we only support 2x2 tile pyramids !!!!
-        const tileDims = new $.Point(tileWidth, tileHeight);
+        const currentLevel =  Math.max(minLevel, Math.min(maxLevel, getZoomLevel( tiledImage ) ));
 
-        const currentLevel =  Math.max(minLevel, Math.min(maxLevel, getCurrentZoomLevel( tiledImage ) ));
-
-
-        //TODO: rewrite integer arithmetics using BigInt here, otherwise we are limited to 2^31 pixels :-)
-
-        const downShift =  maxLevel - currentLevel;
-        const downSample = (x) => (x >> 0) >> downShift;
-        const upSample = (x) => (x >> 0) << downShift;
-
-        // drawArea in image pixels, then round
-        let imageDrawArea = drawArea.times(imageDims.x).apply(Math.round);
-        //  const sewImageDims = imageDims.apply(downSample);
-
-        // clip here !!!
-        const clipRect = tiledImage.getClip();
-        if( clipRect ){
-            imageDrawArea = imageDrawArea.intersection(clipRect);
-        }
-
-        // flip then
-        if( tiledImage.flipped ){
-            imageDrawArea =  imageDrawArea.flip( imageDims.x / 2 );
-        }
-
-        const imageSewingTileDims = tileDims.apply(upSample);       // current level tile dimensions in image coordinates.
-
-        // calculate tiles Rectangle (at current level) that covers drawArea, in tile (x,y) coordinates
-        const tileTL = imageDrawArea.getTopLeft().unscale( imageSewingTileDims ).apply(Math.floor);
-        const tileBR = imageDrawArea.getBottomRight().unscale( imageSewingTileDims ).apply(Math.ceil);
-        const tilesRect = new $.Rect( tileTL.x, tileTL.y, tileBR.x - tileTL.x, tileBR.y - tileTL.y);
-
-        const imageCanvasRect = tilesRect.scale(imageSewingTileDims);
-        let sewCanvasRect = imageCanvasRect.apply(downSample);
-
-        if ( sewCanvasRect.width <= 0 || sewCanvasRect.height <= 0){    // to be on safe side
+        const composite = getComposite(tiledImage, currentLevel);
+        if(!composite){
             return;
         }
 
-        let sewDrawArea = imageDrawArea.apply(downSample);
+        // const compositeContext = composite.context;
 
-
-        // stich tiles on sewCanvas
-        //TODO: move stiching to TiledImage class - for further optimization
-
-        const sewCanvas = $.Utils.newOffscreenCanvas(sewCanvasRect.width, sewCanvasRect.height);
-        const sewCtx = sewCanvas.getContext('2d');
-
-        // for debug purposes only
-        // sewCtx.fillStyle = "rgba(144, 238, 144, 0.2)"; // lightgreen + 20%
-        // sewCtx.fillRect(0, 0, sewCanvas.width, sewCanvas.height);
-
-        sewCtx.translate( -sewCanvasRect.x, -sewCanvasRect.y );
-
-        function drawTile( level, x, y){
-                const numTiles = tiledImage.source.getNumTiles(level);                    //DAO251: TiledImage._getTile need this for some reason ?????
-                const tile = tiledImage._getTile(x, y, level, 0, numTiles);
-
-                const posX = x * tileWidth;             // do not use sewCtx.translate !!!! context.save() is not free
-                const posY = y * tileHeight;
-
-                if (tile.loaded){
-                    const tileImage = tile.getImage();
-                    sewCtx.drawImage(tileImage, posX, posY);
-                }
-
-                if (tiledImage.debugMode){
-                    sewCtx.save(); // OK in debug mode
-                    {
-                        sewCtx.translate(posX, posY);
-                        sewCtx.strokeRect( 0.5, 0.5, tileWidth - 1, tileHeight - 1);
-                        if (tiledImage.flipped){
-                            sewCtx.translate(tileWidth, 0);
-                            sewCtx.scale(-1, 1);
-                        }
-                        sewCtx.fillText(`${level}:${x}:${y}`, 10, 25);
-                    }
-                    sewCtx.restore();
-                }
-
-        }
-
-        //   styles for debugMode
-        Drawer._applyDebugStyles(sewCtx);
-
-        for( let x = 0; x < tilesRect.width; x++ ){
-            for( let y = 0; y < tilesRect.height; y++ ){
-                drawTile( currentLevel, tilesRect.x + x, tilesRect.y + y);
-            }
-        }
+        let imgDrawArea = composite.imgDrawArea.clone();
+        const lyrComposite = composite.lyrComposite;
+        // const imgSize = composite.imgSize;
+        const lyrDrawArea = composite.lyrDrawArea;
 
         this.context.save();    // OK outside a loop
         {
             const ctx = this.context;
 
-            if( tiledImage.flipped ){       // restore drawArea position
-                imageDrawArea = imageDrawArea.flip( imageDims.x / 2 );
-            }
-
-            let tl = imageDrawArea.getTopLeft();
-            let tr = imageDrawArea.getTopRight();
-            let bl = imageDrawArea.getBottomLeft();
-            let br = imageDrawArea.getBottomRight();
+            let tl = imgDrawArea.getTopLeft();
+            let tr = imgDrawArea.getTopRight();
+            let bl = imgDrawArea.getBottomLeft();
+            let br = imgDrawArea.getBottomRight();
 
             if( tiledImage.flipped ){   // swap the drawArea corners
                 [tl, tr] = [tr, tl];
@@ -342,32 +290,29 @@ class Drawer extends OpenSeadragon.DrawerBase{
             const posBR = this.viewport.viewportToViewerElementCoordinates(
                 tiledImage.imageToViewportCoordinates(br.x, br.y, true)
             );
-            const a = (posTR.x - posTL.x) / sewDrawArea.width;
-            const b = (posTR.y - posTL.y) / sewDrawArea.width;
-            const c = (posBR.x - posTR.x) / sewDrawArea.height;
-            const d = (posBR.y - posTR.y) / sewDrawArea.height;
+            const a = (posTR.x - posTL.x) / lyrDrawArea.width;
+            const b = (posTR.y - posTL.y) / lyrDrawArea.width;
+            const c = (posBR.x - posTR.x) / lyrDrawArea.height;
+            const d = (posBR.y - posTR.y) / lyrDrawArea.height;
             const e = posTL.x;
             const f = posTL.y;
 
-            ctx.scale( $.pixelDensityRatio, $.pixelDensityRatio );      // transition to logical pixels !!!
+            ctx.scale( $.pixelDensityRatio, $.pixelDensityRatio );      // transition to logical pixels as we're drawing to the screen!!!
             ctx.transform(a, b, c, d, e, f);
 
-            // image Smoothing
             ctx.imageSmoothingEnabled = this._imageSmoothingEnabled;
             ctx.globalCompositeOperation = tiledImage.compositeOperation;
             ctx.globalAlpha = tiledImage.opacity;
 
-            ctx.drawImage(sewCtx.canvas,
-                sewDrawArea.x - sewCanvasRect.x, sewDrawArea.y - sewCanvasRect.y,
-                sewDrawArea.width, sewDrawArea.height,
+            ctx.drawImage(
+                composite.context.canvas,
+                lyrDrawArea.x - lyrComposite.x, lyrDrawArea.y - lyrComposite.y,
+                lyrDrawArea.width, lyrDrawArea.height,
                 0, 0,
-                sewDrawArea.width, sewDrawArea.height,
+                lyrDrawArea.width, lyrDrawArea.height,
             );
         }
         this.context.restore();
     }
-}
-
-$.Drawer = Drawer;
-
+};
 }( OpenSeadragon ));

@@ -5,31 +5,37 @@
     <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
     <style type="text/css">
         .openseadragon1 {
-            /* left: 1px; */
+            /* to provide device pixel misalignment */
+            transform: translate(0.4px, 0.4px);
+            margin: 0px;
+            border: 0px;
             width: 512px;
             height: 768px;
-            border: 1px solid rgba(0, 0, 0, 0.15);
+            background-color: rgb(225,255,225);
+        }
+        .openseadragon-canvas:focus {
+            outline: none;
+            box-shadow: none;
         }
     </style>
 </head>
 <body>
-    <div>
-        <p>Big JPEG image - 90MB, 80MP (7479x11146 px)</p>
-        <p>tiled to PNG 256x256 no overlap</p>
-    </div>
+    <pre>Big JPEG image - 90MB, 80MP (7479x11146 px) tiled to PNG 256x256 no overlap</pre>
     <div style="display: flex; gap: 10px;">
         <div id="content1" class="openseadragon1"></div>
-        <div style="display:flex; flex-direction:column;">
+        <pre style="display:flex; flex-direction:column;">
             <label>Viewer</label>
             <label><input type="checkbox" onchange="debug(this.checked)">Tile Grid</label>
+            <label> </label>
             <!-- <label>---------------</label> -->
             <div style="border-bottom:1px solid #000;"></div>
+            <label> </label>
             <label>Image</label>
             <label><input type="checkbox" onchange="rotate(this.checked * 30)">Rotate</label>
             <label><input type="checkbox" onchange="flip(this.checked)">Flip</label>
             <label><input type="checkbox" onchange="clip(this.checked)">Clip</label>
             <label><input type="checkbox" onchange="opacity(this.checked?.8:1)">Opacity</label>
-        </div>
+        </pre>
         <div id="content2" class="openseadragon1"></div>
     </div>
     <pre id="out"></pre>
@@ -38,50 +44,26 @@
 
         const viewerOptions = {
             prefixUrl: "../../build/openseadragon/images/",
+            maxImageCacheCount: 2000,  // set to a big number as we only draw one layer yet
 
             showRotationControl: true,
             showFlipControl: true,
             showNavigator: true,
-            // wrapHorizontal:     true,  // is NOT supported yet !!!!!!!!
 
             rotationIncrement: 22.5,
             zoomPerScroll: Math.sqrt(Math.SQRT2),
 
             minZoomLevel: 0.01,
             maxZoomPixelRatio: 2.00,
-            // minPixelRatio: 1/window.devicePixelRatio,
-
-            // debugMode: true,
         };
 
         let viewer1 = OpenSeadragon({...viewerOptions, ...{drawer: 'drawer', id: "content1"} });
         let viewer2 = OpenSeadragon({...viewerOptions, ...{drawer: 'canvas', id: "content2"} });
 
-        const images =[
-            // {
-            //     tileSource: { type:"image", url:"../../test/data/BBlue.png", tileWidth: 131, tileHeight: 251 },
-            // },
-            // {
-            //     tileSource: { type:"image", url:"../../test/data/gray_4096.png", tileSize: 256 },
-            // },
-            {
-                tileSource: "../../test/data/monalisa.dzi",
-            },
-            // {
-            //     tileSource: { type: 'openstreetmaps' }
-            // },
-            // {
-            //     tileSource: {
-            //         iipsrv: "https://merovingio.c2rmf.cnrs.fr/fcgi-bin/iipsrv.fcgi",
-            //         image:  "77917.ome.tif",
-            //         format: "jpg",
-            //         transform:  {
-            //             contrast: 1.5,
-            //             twist: "[0,0,1;0,1,0;0.9,0,0.1]"
-            //         }
-            //     }
-            // }
-        ]
+        const images = [
+            getImage(0),    // BlueB
+            getImage(1),    // MonaLisa DZI
+        ];
 
         const activeImage = images.length - 1;
 
@@ -89,7 +71,6 @@
             viewer1.addTiledImage(images[i]);
             viewer2.addTiledImage(images[i]);
         }
-
 
         let isSyncing = false;
 
@@ -140,6 +121,35 @@
         function opacity(v) {
             viewer1.world.getItemAt(activeImage).setOpacity(v);
             viewer2.world.getItemAt(activeImage).setOpacity(v);
+        }
+
+        function getImage(no){
+            const images = [
+                {
+                    tileSource: { type:"image", url:"../../test/data/BBlue.png", tileWidth: 131, tileHeight: 251 },
+                },
+                {
+                    tileSource: "../../test/data/monalisa.dzi",
+                },
+                {
+                    tileSource: { type: 'openstreetmaps' }
+                },
+                {
+                    tileSource: {
+                        iipsrv: "https://merovingio.c2rmf.cnrs.fr/fcgi-bin/iipsrv.fcgi",
+                        image:  "77917.ome.tif",
+                        format: "jpg",
+                        transform:  {
+                            contrast: 1.5,
+                            twist: "[0,0,1;0,1,0;0.9,0,0.1]"
+                        }
+                    }
+                },
+                {
+                    tileSource: { type:"image", url:"../../test/data/gray_4096.png", tileSize: 256 },
+                },
+            ];
+            return images[no];
         }
 
 
