@@ -1074,18 +1074,19 @@ function OpenSeadragon( options ){
      * @returns {Number}
      */
     $.getCurrentPixelDensityRatio = function() {
-        if ( $.supportsCanvas ) {
-            var context = document.createElement('canvas').getContext('2d');
-            var devicePixelRatio = window.devicePixelRatio || 1;
-            var backingStoreRatio = context.webkitBackingStorePixelRatio ||
-                                    context.mozBackingStorePixelRatio ||
-                                    context.msBackingStorePixelRatio ||
-                                    context.oBackingStorePixelRatio ||
-                                    context.backingStorePixelRatio || 1;
-            return Math.max(devicePixelRatio, 1) / backingStoreRatio;
-        } else {
-            return 1;
-        }
+        return $.pixelDensityRatio;
+        // if ( $.supportsCanvas ) {
+        //     var context = document.createElement('canvas').getContext('2d');
+        //     var devicePixelRatio = window.devicePixelRatio || 1;
+        //     var backingStoreRatio = context.webkitBackingStorePixelRatio ||
+        //                             context.mozBackingStorePixelRatio ||
+        //                             context.msBackingStorePixelRatio ||
+        //                             context.oBackingStorePixelRatio ||
+        //                             context.backingStorePixelRatio || 1;
+        //     return Math.max(devicePixelRatio, 1) / backingStoreRatio;
+        // } else {
+        //     return 1;
+        // }
     };
 
     /**
@@ -1094,7 +1095,15 @@ function OpenSeadragon( options ){
      * @member {Number} pixelDensityRatio
      * @memberof OpenSeadragon
      */
-    $.pixelDensityRatio = $.getCurrentPixelDensityRatio();
+    // $.pixelDensityRatio = $.getCurrentPixelDensityRatio();
+    Object.defineProperty($, "pixelDensityRatio",
+        {
+            get(){
+                return window.devicePixelRatio;
+            },
+            enumerable: true,
+            configurable: false,
+        });
 
 }( OpenSeadragon ));
 
