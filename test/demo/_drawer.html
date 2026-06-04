@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>DZI TileSource Demo</title>
-    <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
+    <script type="text/javascript" src='../../build/openseadragon/openseadragon.min.js'></script>
     <style type="text/css">
         .openseadragon1 {
             /* to provide device pixel misalignment */
@@ -11,7 +11,7 @@
             border: 0px;
             width: 512px;
             height: 768px;
-            background-color: rgb(225,255,225);
+            background-color: rgb(240,255,240);
         }
         .openseadragon-canvas:focus {
             outline: none;
@@ -20,14 +20,15 @@
     </style>
 </head>
 <body>
-    <pre>Big JPEG image - 90MB, 80MP (7479x11146 px) tiled to PNG 256x256 no overlap</pre>
+    <pre id="demo"> </pre>
     <div style="display: flex; gap: 10px;">
         <div id="content1" class="openseadragon1"></div>
         <pre style="display:flex; flex-direction:column;">
-            <label>Viewer</label>
+            <label>Viewer/Drawer</label>
             <label><input type="checkbox" onchange="debug(this.checked)">Tile Grid</label>
+            <label><input type="checkbox" onchange="smooth(this.checked)" checked>Smooth</label>
             <label> </label>
-            <!-- <label>---------------</label> -->
+            <!--                              -->
             <div style="border-bottom:1px solid #000;"></div>
             <label> </label>
             <label>Image</label>
@@ -38,9 +39,21 @@
         </pre>
         <div id="content2" class="openseadragon1"></div>
     </div>
-    <pre id="out"></pre>
+    <div>
+        <pre id="out" style="height:400px; width:1100px; overflow-y:auto;"></pre>
+    </div>
 
     <script id="code" type="text/javascript">
+
+        const params = new URLSearchParams(location.search);
+        const image = params.get("i")  || 0;
+        const bgImg = params.get("bg") || 1;
+        const drawer = params.get("d") || 'canvas';
+
+        const images = [];
+        if( Number(bgImg) ) images.push( getImage(bgImg) );
+        images.push( getImage(image) );
+
 
         const viewerOptions = {
             prefixUrl: "../../build/openseadragon/images/",
@@ -58,14 +71,11 @@
         };
 
         let viewer1 = OpenSeadragon({...viewerOptions, ...{drawer: 'drawer', id: "content1"} });
-        let viewer2 = OpenSeadragon({...viewerOptions, ...{drawer: 'canvas', id: "content2"} });
+        let viewer2 = OpenSeadragon({...viewerOptions, ...{drawer: drawer,   id: "content2"} });
 
-        const images = [
-            getImage(0),    // BlueB
-            getImage(1),    // MonaLisa DZI
-        ];
 
         const activeImage = images.length - 1;
+        document.getElementById("demo").textContent = images[activeImage]?.demo;
 
         for(let i=0; i<images.length; i++){
             viewer1.addTiledImage(images[i]);
@@ -123,18 +133,27 @@
             viewer2.world.getItemAt(activeImage).setOpacity(v);
         }
 
+        function smooth(v) {
+            viewer1.drawer.setImageSmoothingEnabled(v);
+            viewer2.drawer.setImageSmoothingEnabled(v);
+        }
+
         function getImage(no){
             const images = [
                 {
+                    tileSource: "../../test/data/monalisa.dzi",
+                    demo:"DeepZoom Image : 80MP (7479x11146 px) tiled into 256x256 tiles",
+                },
+                {
+                    demo:"Simple Image : 1000x1000, tiled into 131x251 tiles",
                     tileSource: { type:"image", url:"../../test/data/BBlue.png", tileWidth: 131, tileHeight: 251 },
                 },
                 {
-                    tileSource: "../../test/data/monalisa.dzi",
+                    demo:"OpenStreetMaps",
+                    tileSource: { type: 'openstreetmaps' },
                 },
                 {
-                    tileSource: { type: 'openstreetmaps' }
-                },
-                {
+                    demo:"IIP TileSource: Huge WSI slide",
                     tileSource: {
                         iipsrv: "https://merovingio.c2rmf.cnrs.fr/fcgi-bin/iipsrv.fcgi",
                         image:  "77917.ome.tif",
@@ -146,7 +165,8 @@
                     }
                 },
                 {
-                    tileSource: { type:"image", url:"../../test/data/gray_4096.png", tileSize: 256 },
+                    demo:'Image : 4096x4096, BW checkerboard 1x1, a nightmare for scaling',
+                    tileSource: { type:"image", url:"../../test/data/checkerboard_4096.png" },
                 },
             ];
             return images[no];
@@ -154,9 +174,9 @@
 
 
     </script>
-    <script>
+    <!-- <script>
         document.getElementById("out").textContent =
             document.getElementById("code").textContent;
-    </script>
+    </script> -->
 </body>
 </html>
