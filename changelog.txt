@@ -5,8 +5,27 @@ OPENSEADRAGON CHANGELOG
 
 ... to be continued ...
 
+* BREAKING: added new Drawer with 'drawer' id
+    main idea: first stich tiles, then draw to the screen (scale/rotate)
+    it provides device-pixel-aligned precision - no no seams, no 'tiling artifacts'
+    it should be TIMES faster than existing drawers (need to measure)
+    some of the 'drawer' functionality should be moved to the TiledImage class.
+    does NOT support:
+    - non-2x2 tile pyramids and non-POT level scales. So, some of the
+        TileSources should be adapted (via pyramid normalization)
+    - (yet) levels blending on zoom
+    - (yet) wrapHorizontal, wrapVerical
+
+* removed "update Pixel density" Viewer methods.
+    $.devicePixelRatio now points directly to window.devicePixelRatio and does not need updates.
+    Previously, updates were needed for very old browsers.
+* added few methods to Point and Rect: scale, unscale, flip, ceil, apply
 * added few demos for getTileImage: get-tile-image-..., how to use the getTileImage
 * added two demos from the OSD site: iip-OSD-site and iiif-OSD-site
+
+* BREAKING: completely new TileCache implementation (simple FIFO/LRU)
+    removed all cache-related methods of TileSource
+    the only class that uses TileCache is Tile.
 
 * BREAKING: added new method of TileSource class: getTileImage(level,x,y)
     This method returns CanvasImageSource or Promise<CanvasImageSource>.
@@ -14,6 +33,7 @@ OPENSEADRAGON CHANGELOG
     In fact, this is the only method that (child, custom) TileSource must implement.
     For backward compatibility, the default implementation provided, fetching the images
     in older OSD manner.
+
 * BREAKING: removed downloadTileStart/downloadTileAbort methods of TileSource as not SOLID-compliant.
     Any apps/plugins that used these API won't work. Use getTileImage instead (see above)
 
