@@ -76,8 +76,8 @@ module.exports = function(grunt) {
     var banner = "//! <%= pkg.name %> <%= pkg.version %>\n" +
                  "//! Built on <%= grunt.template.today('yyyy-mm-dd') %>\n" +
                  "//! Git commit: <%= gitInfo %>\n" +
-                 "//! http://openseadragon.github.io\n" +
-                 "//! License: http://openseadragon.github.io/license/\n\n";
+                 "//! https://github.com/dao251/openseadragon\n" +
+                 "//! License: https://raw.githubusercontent.com/dao251/openseadragon/main/license.txt\n\n";
 
     // ----------
     grunt.event.once('git-describe', function (rev) {
