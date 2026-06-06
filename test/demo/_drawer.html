@@ -5,8 +5,9 @@
     <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
     <style type="text/css">
         .openseadragon1 {
-            /* DEMO: to provide device pixel misalignment */
-            /* transform: translate(0.4px, 0.4px); */
+            /* DEMO: to provide device pixel misalignment: simulate real-life page layouts */
+            /* 0.4px guarantees misalignment for DPR = 1.5, 2 */
+            transform: translate(0.4px, 0.4px);
             margin: 0px;
             border: 0px;
             width: 512px;
