@@ -38,17 +38,22 @@ $.Utils = class {
      * @param {Element} el - The DOM element to snap.
      */
     static snapElementToDevicePixels(el) {
-        const dpr = window.devicePixelRatio;    // dont use $.pixelDensityRatio here !!! these are not always the same
+        const dpr = window.devicePixelRatio;
         // Get current rendered box
         const rect = el.getBoundingClientRect();
         // Compute aligned CSS pixel coordinates
-        const snappedLeft = Math.round(rect.left * dpr) / dpr;
-        const snappedTop = Math.round(rect.top * dpr) / dpr;
+        let snappedLeft = Math.round(rect.left * dpr) / dpr;
+        let snappedTop = Math.round(rect.top * dpr) / dpr;
+        // === Quantize to exact DPR grid ===
+        // This removes float noise like 0.09999984
+        const q = 1 / dpr; // CSS pixel step that maps to 1 device pixel
+        snappedLeft = Math.round(snappedLeft / q) * q;
+        snappedTop = Math.round(snappedTop / q) * q;
         // Apply correction offset
         const dx = snappedLeft - rect.left;
         const dy = snappedTop - rect.top;
         // Dead-zone to avoid chasing floating-point noise
-        const EPS = 1e-4;
+        const EPS = 1e-5;
         if (Math.abs(dx) < EPS && Math.abs(dy) < EPS) {
             return; // already aligned
         }
