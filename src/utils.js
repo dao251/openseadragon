@@ -47,6 +47,11 @@ $.Utils = class {
         // Apply correction offset
         const dx = snappedLeft - rect.left;
         const dy = snappedTop - rect.top;
+        // Dead-zone to avoid chasing floating-point noise
+        const EPS = 1e-4;
+        if (Math.abs(dx) < EPS && Math.abs(dy) < EPS) {
+            return; // already aligned
+        }
         // Apply via transform (safe, non‑layout‑breaking)
         const prev = getComputedStyle(el).transform;
         const base = prev === "none" ? "" : prev;

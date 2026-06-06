@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>DZI TileSource Demo</title>
-    <script type="text/javascript" src='../../build/openseadragon/openseadragon.min.js'></script>
+    <title>Drawer Demo</title>
+    <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
     <style type="text/css">
         .openseadragon1 {
-            /* to provide device pixel misalignment */
-            transform: translate(0.4px, 0.4px);
+            /* DEMO: to provide device pixel misalignment */
+            /* transform: translate(0.4px, 0.4px); */
             margin: 0px;
             border: 0px;
             width: 512px;
             height: 768px;
-            background-color: rgb(240,255,240);
+            background-color: rgb(223,223,255);
         }
         .openseadragon-canvas:focus {
             outline: none;
@@ -22,22 +22,37 @@
 <body>
     <pre id="demo"> </pre>
     <div style="display: flex; gap: 10px;">
-        <div id="content1" class="openseadragon1"></div>
+        <div>
+            <pre>'drawer' drawer</pre>
+            <div id="content1" class="openseadragon1"></div>
+        </div>
         <pre style="display:flex; flex-direction:column;">
-            <label>Viewer/Drawer</label>
-            <label><input type="checkbox" onchange="debug(this.checked)">Tile Grid</label>
-            <label><input type="checkbox" onchange="smooth(this.checked)" checked>Smooth</label>
             <label> </label>
-            <!--                              -->
+            <label> </label>
+            <div style="border-bottom:1px solid #000;"></div>
+            <label> </label>
+            <label>&lt;- Level</label>
+            <label id="level"></label>
+            <label>&lt;- Tile Scale</label>
+            <label id="scale"></label>
+            <label> </label>
+            <button id="perfect-btn" onclick="perfect()">Zoom to Pixels</button>
+            <label> </label>
             <div style="border-bottom:1px solid #000;"></div>
             <label> </label>
             <label>Image</label>
-            <label><input type="checkbox" onchange="rotate(this.checked * 30)">Rotate</label>
+            <label><input type="checkbox" onchange="rotate( this.checked * 30 )">Rotate</label>
             <label><input type="checkbox" onchange="flip(this.checked)">Flip</label>
             <label><input type="checkbox" onchange="clip(this.checked)">Clip</label>
-            <label><input type="checkbox" onchange="opacity(this.checked?.8:1)">Opacity</label>
+            <label><input type="checkbox" onchange="opacity( this.checked ? .6 : 1 )">Opacity</label>
+            <label> </label>
+            <label><input type="checkbox" onchange="smooth(this.checked)" checked>Smooth</label>
+            <label><input type="checkbox" onchange="debug(this.checked)">Tile Grid</label>
         </pre>
-        <div id="content2" class="openseadragon1"></div>
+        <div>
+            <pre><span id="drawer">'canvas'</span> drawer (v5.0.1)</pre>
+            <div id="content2" class="openseadragon1"></div>
+        </div>
     </div>
     <div>
         <pre id="out" style="height:400px; width:1100px; overflow-y:auto;"></pre>
@@ -47,7 +62,7 @@
 
         const params = new URLSearchParams(location.search);
         const image = params.get("i")  || 0;
-        const bgImg = params.get("bg") || 1;
+        const bgImg = params.get("b") || 0;
         const drawer = params.get("d") || 'canvas';
 
         const images = [];
@@ -76,6 +91,7 @@
 
         const activeImage = images.length - 1;
         document.getElementById("demo").textContent = images[activeImage]?.demo;
+        document.getElementById("drawer").textContent = `'${drawer}'`;
 
         for(let i=0; i<images.length; i++){
             viewer1.addTiledImage(images[i]);
@@ -107,6 +123,17 @@
         addSyncHandlers(viewer1);
         addSyncHandlers(viewer2);
 
+        viewer1.addHandler('animation', (event) => {
+            const tiledImage = viewer1.world.getItemAt(activeImage);
+            const scale = tiledImage.lastDrawnTileScale;
+            const level = tiledImage.lastDrawnLevel;
+            try{
+                document.getElementById("scale").textContent = scale.toFixed(12);
+                document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
+                document.getElementById("level").textContent = level;
+            }catch(e){}
+        });
+
         function debug(v) {
             viewer1.setDebugMode(v);
             viewer2.setDebugMode(v);
@@ -118,7 +145,8 @@
         }
 
         function clip(v) {
-            const rect = (v ? new OpenSeadragon.Rect(2169,685,2979,4468): undefined);
+            const rect = (v ? images[activeImage].demoClip : undefined);
+            // const rect = (v ? new OpenSeadragon.Rect(2169,685,2979,4468): undefined);
             viewer1.world.getItemAt(activeImage).setClip(rect);
             viewer2.world.getItemAt(activeImage).setClip(rect);
         }
@@ -138,35 +166,46 @@
             viewer2.drawer.setImageSmoothingEnabled(v);
         }
 
+        function perfect(){ // zoom to perfect pixels at current level
+            const scale = viewer1.world.getItemAt(activeImage).lastDrawnTileScale;
+            const iScale = Math.round(scale)
+            const currentZoom = viewer1.viewport.getZoom();
+            viewer1.viewport.zoomTo(currentZoom/scale*iScale,null,true);
+        }
+
         function getImage(no){
             const images = [
                 {
                     tileSource: "../../test/data/monalisa.dzi",
-                    demo:"DeepZoom Image : 80MP (7479x11146 px) tiled into 256x256 tiles",
+                    demo:"DeepZoom Image : 80MP (7479x11146 px) JPEG tiled into 256x256 tiles",
+                    demoClip: new OpenSeadragon.Rect( 2169, 685, 2979, 4468),
                 },
                 {
-                    demo:"Simple Image : 1000x1000, tiled into 131x251 tiles",
+                    demo:"Simple Image : 1000x1000 PNG, tiled into 131x251 tiles",
                     tileSource: { type:"image", url:"../../test/data/BBlue.png", tileWidth: 131, tileHeight: 251 },
+                    demoClip: new OpenSeadragon.Rect( 200, 200, 500, 500),
                 },
                 {
-                    demo:"OpenStreetMaps",
-                    tileSource: { type: 'openstreetmaps' },
-                },
-                {
-                    demo:"IIP TileSource: Huge WSI slide",
+                    demo:"IIP TileSource: Huge WSI slide tiled into 256x256 JPEG tiles with no overlap",
                     tileSource: {
                         iipsrv: "https://merovingio.c2rmf.cnrs.fr/fcgi-bin/iipsrv.fcgi",
                         image:  "77917.ome.tif",
-                        format: "jpg",
+                        format: "jpg",      // jpg creates tiling artifacts on the server, need overlaps !!!
                         transform:  {
                             contrast: 1.5,
                             twist: "[0,0,1;0,1,0;0.9,0,0.1]"
                         }
-                    }
+                    },
+                    demoClip: new OpenSeadragon.Rect( 20000, 15000, 10000, 10000),
                 },
                 {
-                    demo:'Image : 4096x4096, BW checkerboard 1x1, a nightmare for scaling',
+                    demo:'Image : 4096x4096 PNG - BW checkerboard 1x1, a nightmare for scaling tiled into 256x256',
                     tileSource: { type:"image", url:"../../test/data/checkerboard_4096.png" },
+                    demoClip: new OpenSeadragon.Rect( 1000, 1000, 1000, 1000),
+                },
+                {
+                    demo:"OpenStreetMaps",
+                    tileSource: { type: 'openstreetmaps' },
                 },
             ];
             return images[no];

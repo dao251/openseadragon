@@ -11,26 +11,37 @@ const OpenSeadragon = $; // (re)alias back to OpenSeadragon for JSDoc
 // helper functions and a class
 //TODO: move to the TiledImage class
 
-function getZoomLevel( tiledImage ) {
+function getCurrentZoomLevel( tiledImage ) {
     const zoom = tiledImage.viewport.getZoom(true);
     const imageZoom = tiledImage.viewportToImageZoom(zoom);
 
+    const maxLevel =  tiledImage.source.maxLevel;
+    const minLevel =  tiledImage.source.minLevel;
+
     //DAO251: Need to take into account .minPixelRatio (who chose this f... name, what is its physical meaning?????)
-    const pixelRatio = 1 / imageZoom *
+    const imageScale = 1 / imageZoom *
         Math.max(tiledImage.minPixelRatio, 1 / $.pixelDensityRatio);  //  no sense to exceed the screen resolution
 
-    const maxLevel =  tiledImage.source.maxLevel;
-    const idealLevel = maxLevel - Math.log2(pixelRatio);
+    // const maxLevel =  tiledImage.source.maxLevel;
+    const idealLevel = maxLevel - Math.log2(imageScale);
     const downsample = 2 ** (maxLevel - idealLevel);
 
     // √2 hysteresis band around the ideal level
-    const level = ( pixelRatio < downsample / Math.SQRT2 ?
+    const level = ( imageScale < downsample / Math.SQRT2 ?
                 Math.floor(idealLevel) :
-            ( pixelRatio > downsample * Math.SQRT2 ?
+            ( imageScale > downsample * Math.SQRT2 ?
                 Math.ceil(idealLevel) :
             Math.round(idealLevel)
         ));
-    return level;
+    // return level;
+    return Math.max(minLevel, Math.min(maxLevel, level ));
+}
+
+function getCurrentTileScale(tiledImage, level){
+    const zoom = tiledImage.viewport.getZoom(true);
+    const imageZoom = tiledImage.viewportToImageZoom(zoom);
+    const tileScale = imageZoom * $.pixelDensityRatio * 2 ** (tiledImage.source.maxLevel - level);
+    return tileScale;
 }
 
 //TODO: Make Composite a class, probably after moving to TiledImage ??
@@ -64,12 +75,13 @@ function getComposite( tiledImage, level ) {
     const levelScale = 2 ** ( maxLevel - level );
 
     // drawArea Rectangle in image pixels (expanded to integer boundaries)
-    let imgDrawArea = drawArea.times(imgSize.x).ceil();
+    // let imgDrawArea = drawArea.times(imgSize.x).ceil();
+    let imgDrawArea = drawArea.times(imgSize.x).apply(Math.round);
 
     // clip here
-    const imgClip = tiledImage.getClip();       // clip area in image coords
+    const imgClip = tiledImage.getClip();
     if( imgClip ){
-        imgDrawArea = imgDrawArea.intersection(imgClip);
+        imgDrawArea = imgDrawArea.intersection(imgClip.apply(Math.round));
     }
 
     // flip
@@ -82,7 +94,7 @@ function getComposite( tiledImage, level ) {
     const imgTileSize = tileSize.times(levelScale);                             // tileSize in image pixels
     const tilComposite = imgDrawArea.unscale(imgTileSize).ceil();               // composite context rectangle in tile numbers
     const lyrComposite = tilComposite.scale(tileSize);                          // Composite context rectangle in level pixels
-    const lyrDrawArea = imgDrawArea.times( 1 / levelScale ).ceil();              // DrawArea in level pixels
+    const lyrDrawArea = imgDrawArea.times( 1 / levelScale );                    // DrawArea in level pixels, do not round!!!
 
     if ( lyrComposite.width <= 0 || lyrComposite.height <= 0){    // to be on the safe side
         return undefined;
@@ -91,6 +103,7 @@ function getComposite( tiledImage, level ) {
     // stich tiles on compositeCanvas
     const compositeCanvas = $.Utils.newOffscreenCanvas(lyrComposite.width, lyrComposite.height);
     const compositeContext = compositeCanvas.getContext('2d');
+    compositeContext.imageSmoothingEnabled = false;            // !!!!
 
     compositeContext.translate( -lyrComposite.x, -lyrComposite.y );
 
@@ -167,6 +180,17 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
     constructor(options){
         super(options);
         this.context = this.canvas.getContext( '2d' );
+
+        // check for DPR changes every 250ms
+        // shouldn't this be done for the entire OSD ???
+        let lastDpr = window.devicePixelRatio;
+        setInterval(() => {
+            const dpr = window.devicePixelRatio;
+            if (dpr !== lastDpr) {
+                lastDpr = dpr;
+                this.viewer.forceRedraw();
+            }
+        }, 250);
     }
 
     /**
@@ -222,21 +246,47 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
      */
     draw(tiledImages) {
         // prepare new frame
+        const dpr = $.pixelDensityRatio;
+
         const size = this.viewport.getContainerSize()
-            .times($.pixelDensityRatio).apply(Math.ceil);      // must be integer (in device physical pixels)
+            .times(dpr).apply(Math.ceil);      // must be integer (in device physical pixels)
+        const canvas = this.canvas;
 
         // clears the canvas
-        this.canvas.width = size.x;
-        this.canvas.height = size.y;
+        canvas.width = size.x;
+        canvas.height = size.y;
+
+        // align the canvas to device pixel boundaries
+
+        // 1. Get rendered CSS box (what layout actually produced)
+        const rect = canvas.getBoundingClientRect();
+
+        // 2. Compute DPR-aligned CSS width/height
+        //    This ensures cssWidth * dpr and cssHeight * dpr are integers.
+        const cssWidth  = Math.round(rect.width * dpr) / dpr;
+        const cssHeight = Math.round(rect.height * dpr) / dpr;
+
+        // 3. Apply CSS size explicitly (lock it)
+        canvas.style.width  = size.x / dpr + "px";
+        canvas.style.height = size.y / dpr + "px";
+
+        // 4. Set backing store size (pixel-perfect)
+        const bsWidth  = Math.round(cssWidth * dpr);
+        const bsHeight = Math.round(cssHeight * dpr);
+
+        if ( canvas.width !== bsWidth || canvas.height !== bsHeight ){
+            canvas.width  = bsWidth;
+            canvas.height = bsHeight;
+        }
+
+        //align the canvas element
+        $.Utils.snapElementToDevicePixels(canvas);
 
         // flip the viewport //DAO251: why here ?
         if( this.viewer.viewport.getFlip() ){
             this.context.scale(-1, 1);
-            this.context.translate(-this.context.canvas.width, 0);
+            this.context.translate(-canvas.width, 0);
         }
-
-        //align the canvas to device pixels (for the cost of 0.03-0.15 ms)
-        $.Utils.snapElementToDevicePixels(this.canvas);
 
         // draw tiledImages onto this.context
         for(const tiledImage of tiledImages){
@@ -251,24 +301,25 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
 
         const maxLevel =  tiledImage.source.maxLevel;
         const minLevel =  tiledImage.source.minLevel;
-        const currentLevel =  Math.max(minLevel, Math.min(maxLevel, getZoomLevel( tiledImage ) ));
+        const currentLevel =  Math.max(minLevel, Math.min(maxLevel, getCurrentZoomLevel( tiledImage ) ));
 
         const composite = getComposite(tiledImage, currentLevel);
         if(!composite){
             return;
         }
 
-        // const compositeContext = composite.context;
+        //DAO251: for demo purposes //TODO: need a concept - where to move these
+        tiledImage.lastDrawnLevel = currentLevel;
+        tiledImage.lastDrawnTileScale = getCurrentTileScale(tiledImage, currentLevel);
 
         let imgDrawArea = composite.imgDrawArea.clone();
         const lyrComposite = composite.lyrComposite;
         // const imgSize = composite.imgSize;
         const lyrDrawArea = composite.lyrDrawArea;
 
-        this.context.save();    // OK outside a loop
+        const ctx = this.context;
+        ctx.save();                 // OK outside tile loop
         {
-            const ctx = this.context;
-
             let tl = imgDrawArea.getTopLeft();
             let tr = imgDrawArea.getTopRight();
             let bl = imgDrawArea.getBottomLeft();
@@ -279,25 +330,24 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
                 [bl, br] = [br, bl];
             }
 
-            // in theory, we already have all neccesary numbers (position, rotation etc.)
+            // we already have all neccesary numbers (position, rotation etc.)
             //DAO251: but I've been lazy, so recalculate to exactly fit OSD 5.0 behaviour
             const posTL = this.viewport.viewportToViewerElementCoordinates(
-                tiledImage.imageToViewportCoordinates(tl.x, tl.y, true)
-            );
+                    tiledImage.imageToViewportCoordinates(tl.x, tl.y, true)
+                ).times($.pixelDensityRatio);
             const posTR = this.viewport.viewportToViewerElementCoordinates(
-                tiledImage.imageToViewportCoordinates(tr.x, tr.y, true)
-            );
+                    tiledImage.imageToViewportCoordinates(tr.x, tr.y, true)
+                ).times($.pixelDensityRatio);
             const posBR = this.viewport.viewportToViewerElementCoordinates(
-                tiledImage.imageToViewportCoordinates(br.x, br.y, true)
-            );
+                    tiledImage.imageToViewportCoordinates(br.x, br.y, true)
+                ).times($.pixelDensityRatio);
             const a = (posTR.x - posTL.x) / lyrDrawArea.width;
             const b = (posTR.y - posTL.y) / lyrDrawArea.width;
             const c = (posBR.x - posTR.x) / lyrDrawArea.height;
             const d = (posBR.y - posTR.y) / lyrDrawArea.height;
-            const e = posTL.x;
-            const f = posTL.y;
+            const e = Math.round(posTL.x);
+            const f = Math.round(posTL.y);
 
-            ctx.scale( $.pixelDensityRatio, $.pixelDensityRatio );      // transition to logical pixels as we're drawing to the screen!!!
             ctx.transform(a, b, c, d, e, f);
 
             ctx.imageSmoothingEnabled = this._imageSmoothingEnabled;
@@ -312,7 +362,7 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
                 lyrDrawArea.width, lyrDrawArea.height,
             );
         }
-        this.context.restore();
+        ctx.restore();
     }
 };
 }( OpenSeadragon ));
