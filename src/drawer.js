@@ -74,8 +74,8 @@ function getComposite( tiledImage, level ) {
 
     const levelScale = 2 ** ( maxLevel - level );
 
-    // drawArea Rectangle in image pixels (expanded to integer boundaries)
-    // let imgDrawArea = drawArea.times(imgSize.x).ceil();
+    // drawArea Rectangle in image pixels (expand to integer boundaries ???)
+    // let imgDrawArea = drawArea.times(imgSize.x).expandToInegerBounds();
     let imgDrawArea = drawArea.times(imgSize.x).apply(Math.round);
 
     // clip here
@@ -91,10 +91,10 @@ function getComposite( tiledImage, level ) {
         imgDrawArea =  imgDrawArea.flip( imgSize.x / 2 );
     }
 
-    const imgTileSize = tileSize.times(levelScale);                             // tileSize in image pixels
-    const tilComposite = imgDrawArea.unscale(imgTileSize).ceil();               // composite context rectangle in tile numbers
-    const lyrComposite = tilComposite.scale(tileSize);                          // Composite context rectangle in level pixels
-    const lyrDrawArea = imgDrawArea.times( 1 / levelScale );                    // DrawArea in level pixels, do not round!!!
+    const imgTileSize = tileSize.times(levelScale);                                 // tileSize in image pixels
+    const tilComposite = imgDrawArea.unscale(imgTileSize).expandToInegerBounds();   // composite context rectangle in tile numbers
+    const lyrComposite = tilComposite.scale(tileSize);                              // Composite context rectangle in level pixels
+    const lyrDrawArea = imgDrawArea.times( 1 / levelScale );                        // DrawArea in level pixels, do not round!!!
 
     if ( lyrComposite.width <= 0 || lyrComposite.height <= 0){    // to be on the safe side
         return undefined;
