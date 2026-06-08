@@ -94,7 +94,7 @@ function getComposite( tiledImage, level ) {
     const imgTileSize = tileSize.times(levelScale);                                 // tileSize in image pixels
     const tilComposite = imgDrawArea.unscale(imgTileSize).expandToInegerBounds();   // composite context rectangle in tile numbers
     const lyrComposite = tilComposite.scale(tileSize);                              // Composite context rectangle in level pixels
-    const lyrDrawArea = imgDrawArea.times( 1 / levelScale );                        // DrawArea in level pixels, do not round!!!
+    const lyrDrawArea = imgDrawArea.times( 1 / levelScale ).apply(Math.round);      // DrawArea in level pixels
 
     if ( lyrComposite.width <= 0 || lyrComposite.height <= 0){    // to be on the safe side
         return undefined;
@@ -193,6 +193,19 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         }, 250);
     }
 
+    get snapToDevicePixels(){
+        return this.__snapTodevicePixels;
+    }
+
+    set snapToDevicePixels(force){
+        if(this.__snapToDevicePixels === !!force){
+            return;
+        }
+
+        this.__snapTodevicePixels = !!force;
+        this.viewer.forceRedraw();
+    }
+
     /**
      * Destroy the drawer
      */
@@ -248,39 +261,44 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         // prepare new frame
         const dpr = $.pixelDensityRatio;
 
-        const size = this.viewport.getContainerSize()
-            .times(dpr).apply(Math.ceil);      // must be integer (in device physical pixels)
+        // const size = this.viewport.getContainerSize()
+        //     .times(dpr).apply(Math.ceil);      // must be integer (in device physical pixels)
         const canvas = this.canvas;
-
-        // clears the canvas
-        canvas.width = size.x;
-        canvas.height = size.y;
+        const container = this.viewer.container;
 
         // align the canvas to device pixel boundaries
 
         // 1. Get rendered CSS box (what layout actually produced)
-        const rect = canvas.getBoundingClientRect();
+        const rect = container.getBoundingClientRect();
 
         // 2. Compute DPR-aligned CSS width/height
         //    This ensures cssWidth * dpr and cssHeight * dpr are integers.
-        const cssWidth  = Math.round(rect.width * dpr) / dpr;
-        const cssHeight = Math.round(rect.height * dpr) / dpr;
+        const devWidth  = Math.round(rect.width * dpr);
+        const devHeight = Math.round(rect.height * dpr);
+        const cssWidth  = devWidth / dpr;
+        const cssHeight = devHeight / dpr;
+
+        // clears the canvas
+        canvas.width = devWidth;
+        canvas.height = devHeight;
 
         // 3. Apply CSS size explicitly (lock it)
-        canvas.style.width  = size.x / dpr + "px";
-        canvas.style.height = size.y / dpr + "px";
+        canvas.style.width  = cssWidth + "px";
+        canvas.style.height = cssHeight + "px";
 
         // 4. Set backing store size (pixel-perfect)
-        const bsWidth  = Math.round(cssWidth * dpr);
-        const bsHeight = Math.round(cssHeight * dpr);
+        // const bsWidth  = Math.round(cssWidth * dpr);
+        // const bsHeight = Math.round(cssHeight * dpr);
 
-        if ( canvas.width !== bsWidth || canvas.height !== bsHeight ){
-            canvas.width  = bsWidth;
-            canvas.height = bsHeight;
+        // if ( canvas.width !== bsWidth || canvas.height !== bsHeight ){
+        //     canvas.width  = bsWidth;
+        //     canvas.height = bsHeight;
+        // }
+
+        //align the canvas element{
+        if(this.__snapTodevicePixels){
+            $.Utils.snapElementToDevicePixels(canvas);
         }
-
-        //align the canvas element
-        $.Utils.snapElementToDevicePixels(canvas);
 
         // flip the viewport //DAO251: why here ?
         if( this.viewer.viewport.getFlip() ){

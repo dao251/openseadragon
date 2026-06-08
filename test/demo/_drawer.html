@@ -5,9 +5,10 @@
     <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
     <style type="text/css">
         .openseadragon1 {
-            /* DEMO: to provide device pixel misalignment: simulate real-life page layouts */
+            /* DEMO: to provide device pixel misalignment (simulate real-life page layouts) */
             /* 0.4px guarantees misalignment for DPR = 1.5, 2 */
-            transform: translate(0.4px, 0.4px);
+            left: 0.4px;
+            top: 0.4px;
             margin: 0px;
             border: 0px;
             width: 512px;
@@ -47,17 +48,18 @@
             <label><input type="checkbox" onchange="clip(this.checked)">Clip</label>
             <label><input type="checkbox" onchange="opacity( this.checked ? .6 : 1 )">Opacity</label>
             <label> </label>
-            <label><input type="checkbox" onchange="smooth(this.checked)" checked>Smooth</label>
             <label><input type="checkbox" onchange="debug(this.checked)">Tile Grid</label>
+            <label><input type="checkbox" onchange="smooth(this.checked)" checked>Smooth</label>
+            <!-- <label><input type="checkbox" onchange="snapToDevice(this.checked)" checked>Snap to Device Px</label> -->
         </pre>
         <div>
             <pre><span id="drawer">'canvas'</span> drawer (v5.0.1)</pre>
             <div id="content2" class="openseadragon1"></div>
         </div>
     </div>
-    <div>
+    <!-- <div>
         <pre id="out" style="height:400px; width:1100px; overflow-y:auto;"></pre>
-    </div>
+    </div> -->
 
     <script id="code" type="text/javascript">
 
@@ -77,7 +79,7 @@
 
             showRotationControl: true,
             showFlipControl: true,
-            showNavigator: true,
+            // showNavigator: true,
 
             rotationIncrement: 22.5,
             zoomPerScroll: Math.sqrt(Math.SQRT2),
@@ -87,8 +89,9 @@
         };
 
         let viewer1 = OpenSeadragon({...viewerOptions, ...{drawer: 'drawer', id: "content1"} });
-        let viewer2 = OpenSeadragon({...viewerOptions, ...{drawer: drawer,   id: "content2"} });
+        let viewer2 = OpenSeadragon({...viewerOptions, ...{drawer: drawer, id: "content2"} });
 
+        viewer1.drawer.snapToDevicePixels = true;
 
         const activeImage = images.length - 1;
         document.getElementById("demo").textContent = images[activeImage]?.demo;
@@ -129,10 +132,15 @@
             const scale = tiledImage.lastDrawnTileScale;
             const level = tiledImage.lastDrawnLevel;
             try{
-                document.getElementById("scale").textContent = scale.toFixed(12);
+                document.getElementById("scale").textContent = scale.toFixed(17);
                 document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
                 document.getElementById("level").textContent = level;
             }catch(e){}
+        });
+
+        viewer1.addHandler('open', (event) => {
+            void event;
+            return;
         });
 
         function debug(v) {
@@ -165,6 +173,10 @@
         function smooth(v) {
             viewer1.drawer.setImageSmoothingEnabled(v);
             viewer2.drawer.setImageSmoothingEnabled(v);
+        }
+
+        function snapToDevice(v) {
+            viewer1.drawer.snapToDevicePixels = v;
         }
 
         function perfect(){ // zoom to perfect pixels at current level
