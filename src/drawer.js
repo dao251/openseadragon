@@ -202,7 +202,7 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
             return;
         }
 
-        this.__snapTodevicePixels = !!force;
+        this.__snapToDevicePixels = !!force;
         this.viewer.forceRedraw();
     }
 
@@ -266,8 +266,6 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         const canvas = this.canvas;
         const container = this.viewer.container;
 
-        // align the canvas to device pixel boundaries
-
         // 1. Get rendered CSS box (what layout actually produced)
         const rect = container.getBoundingClientRect();
 
@@ -275,28 +273,17 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         //    This ensures cssWidth * dpr and cssHeight * dpr are integers.
         const devWidth  = Math.round(rect.width * dpr);
         const devHeight = Math.round(rect.height * dpr);
-        const cssWidth  = devWidth / dpr;
-        const cssHeight = devHeight / dpr;
 
         // clears the canvas
         canvas.width = devWidth;
         canvas.height = devHeight;
 
         // 3. Apply CSS size explicitly (lock it)
-        canvas.style.width  = cssWidth + "px";
-        canvas.style.height = cssHeight + "px";
+        canvas.style.width  = devWidth / dpr + "px";
+        canvas.style.height = devHeight / dpr + "px";
 
-        // 4. Set backing store size (pixel-perfect)
-        // const bsWidth  = Math.round(cssWidth * dpr);
-        // const bsHeight = Math.round(cssHeight * dpr);
-
-        // if ( canvas.width !== bsWidth || canvas.height !== bsHeight ){
-        //     canvas.width  = bsWidth;
-        //     canvas.height = bsHeight;
-        // }
-
-        //align the canvas element{
-        if(this.__snapTodevicePixels){
+        // align the canvas to device pixel boundaries
+        if(this.__snapToDevicePixels){
             $.Utils.snapElementToDevicePixels(canvas);
         }
 
