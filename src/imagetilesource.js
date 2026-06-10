@@ -146,8 +146,8 @@ $.ImageTileSource = class extends $.TileSource {
             }
 
             src = canvas;
-            w >>= 1;
-            h >>= 1;
+            w = Math.ceil(w / 2);
+            h = Math.ceil(h / 2);
         }
 
         // we don't need the original image anymore

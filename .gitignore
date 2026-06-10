@@ -10,3 +10,4 @@ instrumented/
 local-test
 .DS_Store
 .vscode
+.ps
