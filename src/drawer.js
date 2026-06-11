@@ -11,31 +11,48 @@ const OpenSeadragon = $; // (re)alias back to OpenSeadragon for JSDoc
 // helper functions and a class
 //TODO: move to the TiledImage class
 
-function getCurrentZoomLevel( tiledImage ) {
-    const zoom = tiledImage.viewport.getZoom(true);
+
+function getZoomLevel(tiledImage, zoom) {   // 'zoom' means viewport zoom
+    zoom = zoom || tiledImage.viewport.getZoom(true);
     const imageZoom = tiledImage.viewportToImageZoom(zoom);
 
-    const maxLevel =  tiledImage.source.maxLevel;
-    const minLevel =  tiledImage.source.minLevel;
+    const maxLevel = tiledImage.source.maxLevel;
+    const minLevel = tiledImage.source.minLevel;
 
-    //DAO251: Need to take into account .minPixelRatio (who chose this f... name, what is its physical meaning?????)
-    const imageScale = 1 / imageZoom *
-        Math.max(tiledImage.minPixelRatio, 1 / $.pixelDensityRatio);  //  no sense to exceed the screen resolution
+    // imagePixelsPerDevicePixel
+    const imageScale = 1 / (imageZoom * $.pixelDensityRatio);
+    const lodRangeFactor = Number(tiledImage.viewer.lodRangeFactor) || 0;  // default is "always stretch" like OSD 5.0.1
 
-    // const maxLevel =  tiledImage.source.maxLevel;
-    const idealLevel = maxLevel - Math.log2(imageScale);
+    // branch‑free interval definition
+    const f = (lodRangeFactor + 1e-5) * 0.5 - 1;   // 1e-5 : heuristics to avoid jittering, need something more elegant
+    const sMin = 2 ** f;
+    const sMax = 2 ** (f + 1);
+
+    // center of the interval (geometric mean)
+    const sCenter = 2 ** (f + 0.5);
+
+    // apply lodRangeFactor BEFORE idealLevel calculation
+    const effectiveScale = imageScale * sCenter;
+
+    // continuous ideal level
+    const idealLevel = maxLevel - Math.log2(effectiveScale);
+
+    // downsample factor of the ideal level
     const downsample = 2 ** (maxLevel - idealLevel);
 
-    // √2 hysteresis band around the ideal level
-    const level = ( imageScale < downsample / Math.SQRT2 ?
-                Math.floor(idealLevel) :
-            ( imageScale > downsample * Math.SQRT2 ?
-                Math.ceil(idealLevel) :
-            Math.round(idealLevel)
-        ));
-    // return level;
-    return Math.max(minLevel, Math.min(maxLevel, level ));
+    // hysteresis using the SAME interval
+    let level;
+    if (effectiveScale < downsample * sMin) {
+        level = Math.floor(idealLevel);
+    } else if (effectiveScale > downsample * sMax) {
+        level = Math.ceil(idealLevel);
+    } else {
+        level = Math.round(idealLevel);
+    }
+
+    return Math.max(minLevel, Math.min(maxLevel, level));
 }
+
 
 function getCurrentTileScale(tiledImage, level){
     const zoom = tiledImage.viewport.getZoom(true);
@@ -306,7 +323,7 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
 
         const maxLevel =  tiledImage.source.maxLevel;
         const minLevel =  tiledImage.source.minLevel;
-        const currentLevel =  Math.max(minLevel, Math.min(maxLevel, getCurrentZoomLevel( tiledImage ) ));
+        const currentLevel =  Math.max(minLevel, Math.min(maxLevel, getZoomLevel( tiledImage ) ));
 
         const composite = getComposite(tiledImage, currentLevel);
         if(!composite){
