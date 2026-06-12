@@ -11,3 +11,4 @@ local-test
 .DS_Store
 .vscode
 .ps
+.venv
