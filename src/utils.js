@@ -2,7 +2,133 @@
  * OpenSeadragon - Utils
  */
 (function( $ ){
+
+class Deprecation {
+    static warned = new Set();
+    static silent = false;
+
+    // ---- helpers ----
+    static _shouldWarn(feature) {
+        if (this.silent) return false;                  // eslint-disable-line curly
+        if (this.warned.has(feature)) return false;     // eslint-disable-line curly
+        this.warned.add(feature);
+        return true;
+    }
+
+    static _compareVersions(a, b) {
+        // simple semver-ish compare: "2.1" < "2.10"
+        const pa = a.split('.').map(Number);
+        const pb = b.split('.').map(Number);
+        const len = Math.max(pa.length, pb.length);
+
+        for (let i = 0; i < len; i++) {
+            const x = pa[i] || 0;
+            const y = pb[i] || 0;
+            if (x < y) return -1;   // eslint-disable-line curly
+            if (x > y) return 1;    // eslint-disable-line curly
+        }
+        return 0;
+    }
+
+    // ---- soft ----
+    static soft(feature, message) {
+        if (this._shouldWarn(feature)) {
+            console.warn(`[DEPRECATION][soft] ${feature}: ${message}`);
+        }
+    }
+
+    // ---- hard ----
+    static hard(feature, message) {
+        throw new Error(`[DEPRECATION][hard] ${feature}: ${message}`);
+    }
+
+    // ---- scheduled (version-based) ----
+    static schedule(feature, { since, removeIn, current, message }) {
+        // If current >= removeIn → hard error
+        if (this._compareVersions(current, removeIn) >= 0) {
+            this.hard(
+                feature,
+                `${message} (removed in ${removeIn}, was deprecated since ${since})`
+            );
+        }
+
+        // Otherwise → soft warning (once)
+        if (this._shouldWarn(feature)) {
+            console.warn(
+                `[DEPRECATION][scheduled] ${feature}: ${message} ` +
+                `(deprecated since ${since}, will be removed in ${removeIn}, current ${current})`
+            );
+        }
+    }
+}
+
 $.Utils = class {
+
+    // deprecation: decorator API
+
+    // static deprecate = {
+    //     soft(feature, message) {
+    //         return function (value, context) {
+    //             if (context.kind !== "method") {
+    //                 throw new Error(`@decorators.soft can only be applied to methods: ${feature}`);
+    //             }
+
+    //             return function (...args) {
+    //                 Deprecation.soft(feature, message);
+    //                 return value.call(this, ...args);
+    //             };
+    //         };
+    //     },
+
+    //     hard(feature, message) {
+    //         return function (value, context) {
+    //             if (context.kind !== "method") {
+    //                 throw new Error(`@decorators.hard can only be applied to methods: ${feature}`);
+    //             }
+
+    //             return function (...args) {
+    //                 Deprecation.hard(feature, message);
+    //             };
+    //         };
+    //     },
+
+    //     schedule(feature, meta) {
+    //         return function (value, context) {
+    //             if (context.kind !== "method") {
+    //                 throw new Error(`@decorators.schedule can only be applied to methods: ${feature}`);
+    //             }
+
+    //             return function (...args) {
+    //                 Deprecation.schedule(feature, meta);
+    //                 return value.call(this, ...args);
+    //             };
+    //         };
+    //     }
+    // };
+
+
+    // deprecation: wrapper API (to replace with decorators when widely available)
+    static deprecate = {
+        soft(feature, message, fn) {
+            return function (...args) {
+                Deprecation.soft(feature, message);
+                return fn.apply(this, args);        // eslint-disable-line no-invalid-this
+            };
+        },
+
+        hard(feature, message, fn) {
+            return function (...args) {
+                Deprecation.hard(feature, message);
+            };
+        },
+
+        schedule(feature, meta, fn) {
+            return function (...args) {
+                Deprecation.schedule(feature, meta);
+                return fn.apply(this, args);        // eslint-disable-line no-invalid-this
+            };
+        }
+    };
 
     /**
      * Create a standard HTMLCanvasElement at the requested width and height.
