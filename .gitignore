@@ -9,6 +9,6 @@ instrumented/
 .directory
 local-test
 .DS_Store
-.vscode
-.ps
-.venv
+.vscode/
+.ps/
+.venv/

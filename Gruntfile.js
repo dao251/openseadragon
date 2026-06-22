@@ -51,8 +51,6 @@ module.exports = function(grunt) {
             "src/legacytilesource.js",
             "src/imagetilesource.js",
             "src/tilesourcecollection.js",
-            "src/priorityqueue.js",
-            "src/datatypeconvertor.js",
             "src/button.js",
             "src/buttongroup.js",
             "src/rectangle.js",
