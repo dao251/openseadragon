@@ -8,12 +8,41 @@
 (function( $ ){
 const OpenSeadragon = $; // (re)alias back to OpenSeadragon for JSDoc
 
+    /**
+     * Align an element to the device pixel grid in order to avoid blurry rendering.
+     * This adjusts the element's transform so its layout box is snapped to whole
+     * device pixels while preserving any existing transform.
+     */
+    function snapElementToDevicePixels(el) {
+        const dpr = window.devicePixelRatio;
+        // Get current rendered box
+        const rect = el.getBoundingClientRect();
+        // Compute aligned CSS pixel coordinates
+        let snappedLeft = Math.round(rect.left * dpr) / dpr;
+        let snappedTop = Math.round(rect.top * dpr) / dpr;
+        // === Quantize to exact DPR grid ===
+        // This removes float noise like 0.09999984
+        const q = 1 / dpr; // CSS pixel step that maps to 1 device pixel
+        snappedLeft = Math.round(snappedLeft / q) * q;
+        snappedTop = Math.round(snappedTop / q) * q;
+        // Apply correction offset
+        const dx = snappedLeft - rect.left;
+        const dy = snappedTop - rect.top;
+        // Dead-zone to avoid chasing floating-point noise
+        const EPS = 1e-5;
+        if (Math.abs(dx) < EPS && Math.abs(dy) < EPS) {
+            return; // already aligned
+        }
+        // Apply via transform (safe, non‑layout‑breaking)
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+
+
 // helper functions and a class
 //TODO: move to the TiledImage class
 
-
-function getZoomLevel(tiledImage, zoom) {   // 'zoom' means viewport zoom
-    zoom = zoom || tiledImage.viewport.getZoom(true);
+function getZoomLevel(tiledImage, zoom) {                       // 'zoom' means viewport zoom
+    zoom = zoom || tiledImage.viewport.getZoom(true);           // defaults to current zoom
     const imageZoom = tiledImage.viewportToImageZoom(zoom);
 
     const maxLevel = tiledImage.source.maxLevel;
@@ -21,7 +50,7 @@ function getZoomLevel(tiledImage, zoom) {   // 'zoom' means viewport zoom
 
     // imagePixelsPerDevicePixel
     const imageScale = 1 / (imageZoom * $.pixelDensityRatio);
-    const lodRangeFactor = Number(tiledImage.viewer.lodRangeFactor) || 0;  // default is "always stretch" like OSD 5.0.1
+    const lodRangeFactor = Math.max( Number(tiledImage.viewer.lodRangeFactor) || 1, 0);  // default is [1/sqrt2, sqrt2]
 
     // branch‑free interval definition
     const f = (lodRangeFactor + 1e-5) * 0.5 - 1;   // 1e-5 : heuristics to avoid jittering, need something more elegant
@@ -92,8 +121,7 @@ function getComposite( tiledImage, level ) {
     const levelScale = 2 ** ( maxLevel - level );
 
     // drawArea Rectangle in image pixels (expand to integer boundaries ???)
-    // let imgDrawArea = drawArea.times(imgSize.x).expandToInegerBounds();
-    let imgDrawArea = drawArea.times(imgSize.x).apply(Math.round);
+    let imgDrawArea = drawArea.times(imgSize.x).expandToInegerBounds();
 
     // clip here
     const imgClip = tiledImage.getClip();
@@ -102,8 +130,7 @@ function getComposite( tiledImage, level ) {
     }
 
     // flip
-    //DAO251: drawArea should have had a negative width, but it doesn't.
-    //      so we have to flip (and then flip back)
+    //DAO251: it would be better if drawArea had a negative width, but it doesn’t. So we have to flip.
     if( tiledImage.flipped ){
         imgDrawArea =  imgDrawArea.flip( imgSize.x / 2 );
     }
@@ -120,13 +147,13 @@ function getComposite( tiledImage, level ) {
     // stich tiles on compositeCanvas
     const compositeCanvas = $.Utils.newOffscreenCanvas(lyrComposite.width, lyrComposite.height);
     const compositeContext = compositeCanvas.getContext('2d');
-    compositeContext.imageSmoothingEnabled = false;            // !!!!
+    compositeContext.imageSmoothingEnabled = false;   // DON'T smooth, all coordinates are Integers, no scale, no rotation !!!!
 
     compositeContext.translate( -lyrComposite.x, -lyrComposite.y );
 
     // TODO: make it a separate method after moving to TiledImage class
     function drawTile( level, x, y){
-        const numTiles = tiledImage.source.getNumTiles(level);                    //DAO251: TiledImage._getTile need this for some reason ?????
+        const numTiles = tiledImage.source.getNumTiles(level);          //DAO251: TiledImage._getTile need this for some reason ?????
         const tile = tiledImage._getTile(x, y, level, 0, numTiles);
 
         const posX = x * tileWidth;             // do not use compositeContext.translate here !!!! context.save()/restore() are not free
@@ -165,16 +192,11 @@ function getComposite( tiledImage, level ) {
         }
     }
 
-    // restore drawArea position, see comments above
-    if( tiledImage.flipped ){
-        imgDrawArea = imgDrawArea.flip( imgSize.x / 2 );
-    }
-
     const composite = {
         context: compositeContext,
-        lyrDrawArea: lyrDrawArea,
-        imgDrawArea: imgDrawArea,
         imgSize: imgSize,
+        levelScale: levelScale,
+        lyrDrawArea: lyrDrawArea,
         lyrComposite: lyrComposite,
     };
 
@@ -194,9 +216,14 @@ function getComposite( tiledImage, level ) {
 
 $.Drawer = class extends OpenSeadragon.DrawerBase{
 
+    __snapToDevicePixels;   // #private
+
     constructor(options){
         super(options);
         this.context = this.canvas.getContext( '2d' );
+
+        // this.snapToDevicePixels: default -> true
+        this.__snapToDevicePixels = this.viewer.snapToDevicePixels === undefined ? true : !!this.viewer.snapToDevicePixels;
 
         // check for DPR changes every 250ms
         // shouldn't this be done for the entire OSD ???
@@ -301,90 +328,107 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
 
         // align the canvas to device pixel boundaries
         if(this.__snapToDevicePixels){
-            $.Utils.snapElementToDevicePixels(canvas);
+            snapElementToDevicePixels(canvas);
+        } else {
+            canvas.style.transform = "";
         }
+
+        const ctx = this.context;
 
         // flip the viewport //DAO251: why here ?
         if( this.viewer.viewport.getFlip() ){
-            this.context.scale(-1, 1);
-            this.context.translate(-canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.translate(-canvas.width, 0);
         }
 
         // draw tiledImages onto this.context
         for(const tiledImage of tiledImages){
             if (tiledImage.opacity !== 0) {
+                ctx.imageSmoothingEnabled = this._imageSmoothingEnabled;
+                ctx.globalCompositeOperation = tiledImage.compositeOperation;
+                ctx.globalAlpha = tiledImage.opacity;
+
                 this.__drawTiledImage(tiledImage);
             }
         }
     }
 
-    // private, newer call outside the Drawer class
+    // private, never call outside the Drawer class
     __drawTiledImage( tiledImage ){
 
-        const maxLevel =  tiledImage.source.maxLevel;
-        const minLevel =  tiledImage.source.minLevel;
-        const currentLevel =  Math.max(minLevel, Math.min(maxLevel, getZoomLevel( tiledImage ) ));
+        const currentLevel =  getZoomLevel( tiledImage );
 
         const composite = getComposite(tiledImage, currentLevel);
         if(!composite){
             return;
         }
 
-        //DAO251: for demo purposes //TODO: need a concept - where to move these
+        const lyrComposite = composite.lyrComposite;
+        const imgSize = composite.imgSize;
+        const lyrDrawArea = composite.lyrDrawArea;
+        const levelScale = composite.levelScale;
+        let imgDrawArea = lyrDrawArea.times(levelScale);                                    // correct
+
+        if( tiledImage.flipped ){
+            imgDrawArea =  imgDrawArea.flip( imgSize.x / 2 );
+        }
+
+        let tl = imgDrawArea.getTopLeft();
+        let tr = imgDrawArea.getTopRight();
+        let bl = imgDrawArea.getBottomLeft();
+        let br = imgDrawArea.getBottomRight();
+
+        if( tiledImage.flipped ){   // swap the drawArea corners
+            [tl, tr] = [tr, tl];
+            [bl, br] = [br, bl];
+        }
+
+        let posTL = this.viewport.viewportToViewerElementCoordinates(       // top-left position of the drawArea in device px
+                tiledImage.imageToViewportCoordinates(tl.x, tl.y, true)
+            ).times($.pixelDensityRatio);
+        let posTR = this.viewport.viewportToViewerElementCoordinates(       // top-right position of the drawArea in device px
+                tiledImage.imageToViewportCoordinates(tr.x, tr.y, true)
+            ).times($.pixelDensityRatio);
+        let posBR = this.viewport.viewportToViewerElementCoordinates(       // bottom-right position of the drawArea in device px
+                tiledImage.imageToViewportCoordinates(br.x, br.y, true)
+            ).times($.pixelDensityRatio);
+
+        //DAO251: trying to adjust to device pixels....
+        if ( this.__snapToDevicePixels) {
+            posTL = posTL.apply(Math.round);
+            posBR = posBR.apply(Math.round);
+        }
+
+        //DAO251: if we decide to calculate TR from TL,BR - do it here !!!
+
+        if ( this.__snapToDevicePixels) {
+            posTR = posTR.apply(Math.round); // .apply(Math.round) may break right angles... ???
+        }
+
+        // Affine coefficients
+        const a = (posTR.x - posTL.x) / lyrDrawArea.width;
+        const b = (posTR.y - posTL.y) / lyrDrawArea.width;
+        const c = (posBR.x - posTR.x) / lyrDrawArea.height;
+        const d = (posBR.y - posTR.y) / lyrDrawArea.height;
+        const e = posTL.x;
+        const f = posTL.y;
+
+        const ctx = this.context;
+
+        ctx.save();
+        ctx.transform(a, b, c, d, e, f);
+        ctx.drawImage(
+            composite.context.canvas,
+            lyrDrawArea.x - lyrComposite.x, lyrDrawArea.y - lyrComposite.y,
+            lyrDrawArea.width, lyrDrawArea.height,
+            0, 0, lyrDrawArea.width, lyrDrawArea.height,
+        );
+        ctx.restore();
+
+        //TODO: where to move these ??? or keep for futher optimizations ???
         tiledImage.lastDrawnLevel = currentLevel;
         tiledImage.lastDrawnTileScale = getCurrentTileScale(tiledImage, currentLevel);
 
-        let imgDrawArea = composite.imgDrawArea.clone();
-        const lyrComposite = composite.lyrComposite;
-        // const imgSize = composite.imgSize;
-        const lyrDrawArea = composite.lyrDrawArea;
-
-        const ctx = this.context;
-        ctx.save();                 // OK outside tile loop
-        {
-            let tl = imgDrawArea.getTopLeft();
-            let tr = imgDrawArea.getTopRight();
-            let bl = imgDrawArea.getBottomLeft();
-            let br = imgDrawArea.getBottomRight();
-
-            if( tiledImage.flipped ){   // swap the drawArea corners
-                [tl, tr] = [tr, tl];
-                [bl, br] = [br, bl];
-            }
-
-            // we already have all neccesary numbers (position, rotation etc.)
-            //DAO251: but I've been lazy, so recalculate to exactly fit OSD 5.0 behaviour
-            const posTL = this.viewport.viewportToViewerElementCoordinates(
-                    tiledImage.imageToViewportCoordinates(tl.x, tl.y, true)
-                ).times($.pixelDensityRatio);
-            const posTR = this.viewport.viewportToViewerElementCoordinates(
-                    tiledImage.imageToViewportCoordinates(tr.x, tr.y, true)
-                ).times($.pixelDensityRatio);
-            const posBR = this.viewport.viewportToViewerElementCoordinates(
-                    tiledImage.imageToViewportCoordinates(br.x, br.y, true)
-                ).times($.pixelDensityRatio);
-            const a = (posTR.x - posTL.x) / lyrDrawArea.width;
-            const b = (posTR.y - posTL.y) / lyrDrawArea.width;
-            const c = (posBR.x - posTR.x) / lyrDrawArea.height;
-            const d = (posBR.y - posTR.y) / lyrDrawArea.height;
-            const e = Math.round(posTL.x);
-            const f = Math.round(posTL.y);
-
-            ctx.transform(a, b, c, d, e, f);
-
-            ctx.imageSmoothingEnabled = this._imageSmoothingEnabled;
-            ctx.globalCompositeOperation = tiledImage.compositeOperation;
-            ctx.globalAlpha = tiledImage.opacity;
-
-            ctx.drawImage(
-                composite.context.canvas,
-                lyrDrawArea.x - lyrComposite.x, lyrDrawArea.y - lyrComposite.y,
-                lyrDrawArea.width, lyrDrawArea.height,
-                0, 0,
-                lyrDrawArea.width, lyrDrawArea.height,
-            );
-        }
-        ctx.restore();
     }
 };
 }( OpenSeadragon ));

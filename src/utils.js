@@ -157,40 +157,6 @@ $.Utils = class {
         );
 
     /**
-     * Align an element to the device pixel grid in order to avoid blurry rendering.
-     * This adjusts the element's transform so its layout box is snapped to whole
-     * device pixels while preserving any existing transform.
-     *
-     * @param {Element} el - The DOM element to snap.
-     */
-    static snapElementToDevicePixels(el) {
-        const dpr = window.devicePixelRatio;
-        // Get current rendered box
-        const rect = el.getBoundingClientRect();
-        // Compute aligned CSS pixel coordinates
-        let snappedLeft = Math.round(rect.left * dpr) / dpr;
-        let snappedTop = Math.round(rect.top * dpr) / dpr;
-        // === Quantize to exact DPR grid ===
-        // This removes float noise like 0.09999984
-        const q = 1 / dpr; // CSS pixel step that maps to 1 device pixel
-        snappedLeft = Math.round(snappedLeft / q) * q;
-        snappedTop = Math.round(snappedTop / q) * q;
-        // Apply correction offset
-        const dx = snappedLeft - rect.left;
-        const dy = snappedTop - rect.top;
-        // Dead-zone to avoid chasing floating-point noise
-        const EPS = 1e-5;
-        if (Math.abs(dx) < EPS && Math.abs(dy) < EPS) {
-            return; // already aligned
-        }
-        // Apply via transform (safe, non‑layout‑breaking)
-        const prev = getComputedStyle(el).transform;
-        const base = prev === "none" ? "" : prev;
-        el.style.transform = `${base} translate(${dx}px, ${dy}px)`;
-    }
-
-
-    /**
      * Generates a strictly monotonic, collision-proof unique ID.
      * Uses a timestamp and a per-millisecond counter to ensure uniqueness.
      * @returns {string} A unique ID string.
