@@ -12,3 +12,4 @@ local-test
 .vscode/
 .ps/
 .venv/
+.ver/
