@@ -84,8 +84,8 @@ $.OsmTileSource = function( width, height, tileSize, tileOverlap, tilesUrl ) {
     //but allow them to be specified so fliks can host there own instance
     //or apply against other services supportting the same standard
     if( !options.width || !options.height ){
-        options.width = 65572864;
-        options.height = 65572864;
+        options.width = 67108864;
+        options.height = 67108864;
     }
     if( !options.tileSize ){
         options.tileSize = 256;
