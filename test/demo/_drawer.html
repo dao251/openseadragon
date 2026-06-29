@@ -4,6 +4,9 @@
     <title>Drawer Demo</title>
     <script type="text/javascript" src='../../build/openseadragon/openseadragon.js'></script>
     <style type="text/css">
+        html, body{
+            font-family: monospace;
+        }
         .openseadragon1 {
             /* DEMO: to provide device pixel misalignment (simulate real-life page layouts) */
             /* 0.4px guarantees misalignment for DPR = 1.5, 2, 3  */
@@ -20,29 +23,37 @@
             outline: none;
             box-shadow: none;
         }
-    </style>
-    <style>
         #scale {-moz-appearance:textfield; appearance:textfield;}
         #scale::-webkit-inner-spin-button,
         #scale::-webkit-outer-spin-button {-webkit-appearance:none; appearance:none;}
+        #control_form {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            gap: 5px;
+        }
     </style>
 </head>
 <body>
-    <pre id="demo"> </pre>
-    <div style="display: flex; gap: 10px;">
+    <div>
+        <select id="images" onchange="restartViewers()">
+        </select>
+    </div>
+    <div style="width: 300px; margin-top:30px; display: flex;">
         <div>
-            <pre>'drawer' drawer</pre>
-            <div id="content1" class="openseadragon1"></div>
+            <select id="viewer0" onchange="restartViewers()"></select>
+            <iframe id="0" class="openseadragon1"></iframe>
         </div>
-        <pre style="display:flex; flex-direction:column;">
-            <label> </label>
-            <label> </label>
-            <div style="border-bottom:1px solid #000;"></div>
-            <label> </label>
+        <div style="display:flex; flex-direction:column;">
+        <form id="control_form" onsubmit="return false;">
+            <div> </div>
+            <div> </div>
+            <div style="border-bottom:1px solid #000;"> </div>
+            <div> </div>
             <label>&lt;-Level: <span id="level"> </span></label>
             <label>&lt;-Tile Scale</label>
-            <input id="scale" type=number step=any onchange="scale(this.value)">
-            <button id="perfect-btn" onclick="perfect()">Zoom to Pixels</button>
+            <input id="scale" type=number step=any onchange="onScale(this.value);">
+            <button id="perfect-btn" onclick="onPerfect();">Zoom to Pixels</button>
             <label> </label>
             <label>&lt;-LoD Range Factor: <span id="lrf">1.0</span></label>
             <input type="range" min="0" max="4" step="0.1" value="1" oninput="setRangeFactor(this.value)">
@@ -54,15 +65,17 @@
             <label><input type="checkbox" onchange="rotate( this.checked * 30 )">Rotate</label>
             <label><input type="checkbox" onchange="flip(this.checked)">Flip</label>
             <label><input type="checkbox" onchange="clip(this.checked)">Clip</label>
-            <label><input type="checkbox" onchange="opacity( this.checked ? .6 : 1 )">Opacity</label>
+            <label><input type="checkbox" onchange="opacity(this.checked)">Opacity</label>
+            <div>GCO: <select onchange="onGCOselect(this.value)" id="gco_select"></select></div>
             <label> </label>
             <label><input type="checkbox" onchange="debug(this.checked)">Tile Grid</label>
             <label><input type="checkbox" onchange="smooth(this.checked)" checked>Smooth</label>
             <!-- <label><input type="checkbox" onchange="snapToDevice(this.checked)" checked>Snap to Device Px</label> -->
-        </pre>
+        </form>
+    </div>
         <div>
-            <pre><span id="drawer">'canvas'</span> drawer (v5.0.1)</pre>
-            <div id="content2" class="openseadragon1"></div>
+            <select id="viewer1" onchange="restartViewers()"></select>
+            <iframe id="1" class="openseadragon1"></iframe>
         </div>
     </div>
     <!-- <div>
@@ -71,54 +84,123 @@
 
     <script id="code" type="text/javascript">
 
-        const params = new URLSearchParams(location.search);
-        const image = params.get("i")  || 0;
-        const bgImg = params.get("b") || 0;
-        const drawer = params.get("d") || 'canvas';
+        const images = [
+            {
+                tileSource: "/test/data/monalisa.dzi",
+                text: "DZI Mona Lisa : 80MP (7479x11146 px) JPEG tiled into 256x256 (PNG) tiles",
+                clip: [ 1024, 768, 3072, 4096 ],
+            },
+            {
+                text: "DZI BBlue : 1000x1000 PNG",
+                tileSource: "/test/data/BBlue.dzi",
+                clip: [ 200, 200, 500, 500 ],
+            },
+            {
+                text: "IIP TileSource: Huge WSI slide tiled into 256x256 JPEG tiles with no overlap",
+                tileSource: {
+                    iipsrv: "https://merovingio.c2rmf.cnrs.fr/fcgi-bin/iipsrv.fcgi",
+                    image:  "77917.ome.tif",
+                    format: "jpg",      // jpeg creates tiling artifacts on the server, need overlaps !!!
+                    transform:  {
+                        contrast: 1.5,
+                        twist: "[0,0,1;0,1,0;0.9,0,0.1]"
+                    }
+                },
+                clip: [ 20000, 15000, 10000, 10000],
+            },
+            {
+                text: 'DZI : 4096x4096 PNG - 1px grid (every 8px)',
+                tileSource: "/test/data/8px_grid.dzi",
+                clip: [ 1000, 1000, 1000, 1000 ],
+            },
+            {
+                text: "OpenStreetMaps",
+                tileSource: { type: 'openstreetmaps', width: 67108864, height: 67108864 },
+            },
+        ];
+        const viewers = [
+                {   version: "dao251 5.1.0 'drawer'",
+                    url: "/build/openseadragon/openseadragon.js",
+                    viewerOptions:{
+                        drawer:'drawer',
+                        maxImageCacheCount: 2000,   // set to a big number as we only draw one layer yet
+                        maxTilesPerFrame: 9999,     // don't need extra delays !!!
+                        lodRangeFactor: 1,
+                        fetchOptions:{},
+                    }
+                },
+                {   version: "OSD 6.0.2 'canvas'",
+                    url: "/.ver/OSD.6.0.2/openseadragon.js",
+                    viewerOptions: { drawer:'canvas' },
+                },
+                {   version: "OSD 6.0.2 'webgl'",
+                    url: "/.ver/OSD.6.0.2/openseadragon.js",
+                    viewerOptions: { drawer:'webgl', loadTilesWithAjax: true },
+                },
+                {   version: "OSD 5.0.1 'canvas'",
+                    url: "/.ver/OSD.5.0.1/openseadragon.js",
+                    viewerOptions: { drawer:'canvas' },
+                },
+                {   version: "OSD 5.0.1 'webgl'",
+                    url: "/.ver/OSD.5.0.1/openseadragon.js",
+                    viewerOptions: { drawer:'webgl' },
+                },
+                {   version: "OSD 4.1.1 ",
+                    url: "/.ver/OSD.4.1.1/openseadragon.js",
+                    viewerOptions: { },
+                },
+            ]
 
-        const images = [];
-        if( Number(bgImg) ) images.push( getImage(bgImg) );
-        images.push( getImage(image) );
+        window.OSD = {
+            viewerOptions : {
+                prefixUrl: "/build/openseadragon/images/",
+                showRotationControl: true,
+                showFlipControl: true,
+                showNavigator: true,
 
+                rotationIncrement: 22.5,
+                zoomPerScroll: 1.2,
+                lodRangeFactor: 1,
 
-        const viewerOptions = {
-            prefixUrl: "../../build/openseadragon/images/",
-            maxImageCacheCount: 2000,   // set to a big number as we only draw one layer yet
-
-            maxTilesPerFrame: 9999,     // why add extra delays ???? !!!
-
-            showRotationControl: true,
-            showFlipControl: true,
-            showNavigator: true,
-
-            rotationIncrement: 22.5,
-            zoomPerScroll: Math.sqrt(Math.SQRT2),
-            lodRangeFactor: 1,
-
-            minZoomLevel: 0.01,
-            maxZoomPixelRatio: 4.00,
+                minZoomLevel: 0.01,
+                maxZoomPixelRatio: 4.00,
+            },
         };
 
-        let viewer1 = OpenSeadragon({...viewerOptions, ...{drawer: 'drawer', id: "content1"} });
-        let viewer2 = OpenSeadragon({...viewerOptions, ...{drawer: drawer, id: "content2"} });
-
-        // viewer1.drawer.snapToDevicePixels = true;
-
-        const activeImage = images.length - 1;
-        document.getElementById("demo").textContent = images[activeImage]?.demo;
-        document.getElementById("drawer").textContent = `'${drawer}'`;
-
-        for(let i=0; i<images.length; i++){
-            viewer1.addTiledImage(images[i]);
-            viewer2.addTiledImage(images[i]);
+        const imageSelector = document.getElementById('images');
+        for (let i=0; i<images.length; i++){
+            imageSelector.add(new Option( images[i].text, i));
         }
+
+        document.getElementById("viewer0").replaceChildren();
+        document.getElementById("viewer1").replaceChildren();
+        buildViewerSelect();
+
+        function restartViewers () {
+            OSD.viewerOptions.tileSources = [
+                    { tileSource: { type:"image", url:"/test/data/abstract_2048.png", buildPyramid: false}, opacity: 0 },
+                    images[imageSelector.value].tileSource,
+                ];
+            document.getElementById("control_form")?.reset();
+            document.getElementById("gco_select").replaceChildren();
+            buildGCOSelect();
+
+            OSD.viewers = [
+                viewers[document.getElementById("viewer0").value],
+                viewers[document.getElementById("viewer1").value],
+            ];
+
+            document.getElementById(0).src = document.getElementById(1).src = "_viewer.html";
+        }
+        restartViewers();
 
         let isSyncing = false;
 
-        const syncHandler = (event) => {
-            const me    = event.eventSource;
-            const other = ( me === viewer1 ? viewer2 : viewer1);
-            if (!isSyncing){
+        OSD.syncHandler = function (event) {
+            const from = this.userData?.id
+            const me    = OSD.viewers[from].viewer;
+            const other = OSD.viewers[Number(!from)].viewer;
+            if (!isSyncing && me && other){
                 isSyncing = true;
                 other.viewport.zoomTo(me.viewport.getZoom());
                 other.viewport.panTo(me.viewport.getCenter());
@@ -126,128 +208,142 @@
                 other.viewport.setFlip(me.viewport.flipped);
                 isSyncing = false;
             }
-        }
-
-        const addSyncHandlers = (viewer)=>{
-            viewer.addHandler('zoom', syncHandler);
-            viewer.addHandler('pan', syncHandler);
-            viewer.addHandler('rotate', syncHandler);
-            viewer.addHandler('flip', syncHandler);
-        }
-
-        addSyncHandlers(viewer1);
-        addSyncHandlers(viewer2);
-
-        viewer1.addHandler('animation', (event) => {
-            const tiledImage = viewer1.world.getItemAt(activeImage);
-            const scale = tiledImage.lastDrawnTileScale;
-            const level = tiledImage.lastDrawnLevel;
             try{
+                const tiledImage = OSD.viewers[0].viewer.world.getItemAt(1);
+                const scale = tiledImage.lastDrawnTileScale;
+                const level = tiledImage.lastDrawnLevel;
                 document.getElementById("scale").value = scale.toFixed(17);
                 document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
                 document.getElementById("level").textContent = level;
             }catch(e){}
-        });
+        }
 
-        viewer1.addHandler('open', (event) => {
-            void event;
-            return;
-        });
+        OSD.animationHandler = function (event) {
+            try{
+                const tiledImage = OSD.viewers[0].viewer.world.getItemAt(1);
+                const scale = tiledImage.lastDrawnTileScale;
+                const level = tiledImage.lastDrawnLevel;
+                document.getElementById("scale").value = scale.toFixed(17);
+                document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
+                document.getElementById("level").textContent = level;
+            }catch(e){}
+        }
 
         function debug(v) {
-            viewer1.setDebugMode(v);
-            viewer2.setDebugMode(v);
+            OSD.viewers[0].viewer.setDebugMode(v);
+            OSD.viewers[1].viewer.setDebugMode(v);
         }
 
         function flip(v) {
-            viewer1.world.getItemAt(activeImage).setFlip(v);
-            viewer2.world.getItemAt(activeImage).setFlip(v);
+            OSD.viewers[0].viewer.world.getItemAt(1).setFlip(v);
+            OSD.viewers[1].viewer.world.getItemAt(1).setFlip(v);
         }
 
         function clip(v) {
-            const rect = (v ? images[activeImage].demoClip : undefined);
-            // const rect = (v ? new OpenSeadragon.Rect(2169,685,2979,4468): undefined);
-            viewer1.world.getItemAt(activeImage).setClip(rect);
-            viewer2.world.getItemAt(activeImage).setClip(rect);
+            const rect = (v ? images[imageSelector.value].clip : undefined);
+            if(rect){
+                OSD.viewers[0].viewer.world.getItemAt(1).setClip(
+                    new OSD.viewers[0].OpenSeadragon.Rect(...rect)
+                );
+                OSD.viewers[1].viewer.world.getItemAt(1).setClip(
+                    new OSD.viewers[1].OpenSeadragon.Rect(...rect)
+                );
+            }else{
+                OSD.viewers[0].viewer.world.getItemAt(1).setClip(null);
+                OSD.viewers[1].viewer.world.getItemAt(1).setClip(null);
+            }
         }
 
         function rotate(v) {
-            viewer1.world.getItemAt(activeImage).setRotation(v);
-            viewer2.world.getItemAt(activeImage).setRotation(v);
+            OSD.viewers[0].viewer.world.getItemAt(1).setRotation(v);
+            OSD.viewers[1].viewer.world.getItemAt(1).setRotation(v);
         }
 
         function opacity(v) {
-            viewer1.world.getItemAt(activeImage).setOpacity(v);
-            viewer2.world.getItemAt(activeImage).setOpacity(v);
+            OSD.viewers[0].viewer.world.getItemAt(0).setOpacity(v?1:0);
+            OSD.viewers[1].viewer.world.getItemAt(0).setOpacity(v?1:0);
+            OSD.viewers[0].viewer.world.getItemAt(1).setOpacity(v?.6:1);
+            OSD.viewers[1].viewer.world.getItemAt(1).setOpacity(v?.6:1);
         }
 
         function smooth(v) {
-            viewer1.drawer.setImageSmoothingEnabled(v);
-            viewer2.drawer.setImageSmoothingEnabled(v);
+            OSD.viewers[0].viewer.drawer.setImageSmoothingEnabled(v);
+            OSD.viewers[1].viewer.drawer.setImageSmoothingEnabled(v);
         }
 
         function snapToDevice(v) {
-            viewer1.drawer.snapToDevicePixels = v;
+            OSD.viewers[0].viewer.drawer.snapToDevicePixels = v;
         }
 
         function setRangeFactor(v) {
             document.getElementById('lrf').textContent = Number(v).toFixed(1)
-            viewer1.lodRangeFactor = Number(v);
-            viewer1.forceRedraw();
+            OSD.viewers[0].viewer.lodRangeFactor = Number(v);
+            OSD.viewers[0].viewer.forceRedraw();
         }
 
-        function scale(v){
-            const scale = viewer1.world.getItemAt(activeImage).lastDrawnTileScale;
+        function onScale(v){
+            const viewer = OSD.viewers[0].viewer;
+            const scale = viewer.world.getItemAt(1).lastDrawnTileScale;
             // const iScale = Math.round(scale)
-            const currentZoom = viewer1.viewport.getZoom();
-            viewer1.viewport.zoomTo(currentZoom/scale*Number(v),null,true);
+            const currentZoom = viewer.viewport.getZoom();
+            viewer.viewport.zoomTo(currentZoom/scale*Number(v),null,true);
         }
 
-        function perfect(){ // zoom to perfect pixels at current level
-            const scale = viewer1.world.getItemAt(activeImage).lastDrawnTileScale;
+        function onPerfect(){ // zoom to perfect pixels at current level
+            const viewer = OSD.viewers[0].viewer;
+            const scale = viewer.world.getItemAt(1).lastDrawnTileScale;
             const iScale = Math.round(scale)
-            const currentZoom = viewer1.viewport.getZoom();
-            viewer1.viewport.zoomTo(currentZoom/scale*iScale,null,true);
+            const currentZoom = viewer.viewport.getZoom();
+            viewer.viewport.zoomTo(currentZoom/scale*iScale,null,true);
         }
 
-        function getImage(no){
-            const images = [
-                {
-                    tileSource: "../../test/data/monalisa.dzi",
-                    demo:"DeepZoom Image : 80MP (7479x11146 px) JPEG tiled into 256x256 tiles",
-                    demoClip: new OpenSeadragon.Rect( 2169, 685, 2979, 4468),
-                },
-                {
-                    demo:"Simple Image : 1000x1000 PNG, tiled into 131x251 tiles",
-                    tileSource: { type:"image", url:"../../test/data/BBlue.png", tileWidth: 131, tileHeight: 251 },
-                    demoClip: new OpenSeadragon.Rect( 200, 200, 500, 500),
-                },
-                {
-                    demo:"IIP TileSource: Huge WSI slide tiled into 256x256 JPEG tiles with no overlap",
-                    tileSource: {
-                        iipsrv: "https://merovingio.c2rmf.cnrs.fr/fcgi-bin/iipsrv.fcgi",
-                        image:  "77917.ome.tif",
-                        format: "jpg",      // jpg creates tiling artifacts on the server, need overlaps !!!
-                        transform:  {
-                            contrast: 1.5,
-                            twist: "[0,0,1;0,1,0;0.9,0,0.1]"
-                        }
-                    },
-                    demoClip: new OpenSeadragon.Rect( 20000, 15000, 10000, 10000),
-                },
-                {
-                    demo:'Image : 4096x4096 PNG - 1px grid (every 8px)',
-                    tileSource: "../../test/data/8px_grid.dzi",
-                    demoClip: new OpenSeadragon.Rect( 1000, 1000, 1000, 1000),
-                },
-                {
-                    demo:"OpenStreetMaps",
-                    tileSource: { type: 'openstreetmaps' },
-                },
+        function onGCOselect(value){
+            OSD.viewers[0].viewer.world.getItemAt(0).setOpacity(value==='source-over' ? 0 : 1);
+            OSD.viewers[1].viewer.world.getItemAt(0).setOpacity(value==='source-over' ? 0 : 1);
+            OSD.viewers[0].viewer.world.getItemAt(1).compositeOperation = value;
+            OSD.viewers[1].viewer.world.getItemAt(1).compositeOperation = value;
+            OSD.viewers[0].viewer.forceRedraw();
+            OSD.viewers[1].viewer.forceRedraw();
+        }
+
+        function buildGCOSelect() {
+            const SAFE = [
+                "source-over", "source-in", "source-out", "source-atop",
+                "destination-over", "destination-in", "destination-out", "destination-atop",
+                "lighter", "copy", "xor",
+                "multiply", "screen", "overlay", "darken", "lighten",
+                "difference", "exclusion"
             ];
-            return images[no];
+
+            const UNSAFE = [
+                "color-dodge", "color-burn", "hard-light", "soft-light",
+                "hue", "saturation", "color", "luminosity"
+            ];
+
+            const sel = document.getElementById("gco_select");
+
+            function addGroup(label, items) {
+                const g = document.createElement("optgroup");
+                g.label = label;
+                for (const v of items) {
+                    const o = document.createElement("option");
+                    o.value = v;
+                    o.textContent = v;
+                    g.appendChild(o);
+                }
+                sel.appendChild(g);
+            }
+
+            addGroup("Safe (tainted canvas OK)", SAFE);
+            addGroup("Unsafe (may break on tainted canvas)", UNSAFE);
         }
 
+        function buildViewerSelect(el) {
+            for(let i = 0; i < viewers.length; i++){
+                const sel = document.getElementById(`viewer${Number(!!i)}`);
+                sel.add(new Option( viewers[i].version, i));
+            }
+        }
 
     </script>
     <!-- <script>

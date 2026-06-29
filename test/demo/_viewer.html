@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>use within IFRAME</title>
+    <style type="text/css">
+        html, body {
+            margin: 0;
+            height: 100%;
+            overflow: clip;
+        }
+        #osd {
+            width: 100%;
+            height: 100%;
+            background-color: rgb(223,223,255);
+        }
+        .openseadragon-canvas:focus {
+            outline: none;
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+  <div id="osd"></div>
+  <script type="module">
+
+    const myId = Number(window.frameElement?.id) || 0;
+
+    const osd = window.parent.OSD;
+    const osdUrl = osd ? osd.viewers[myId].url : '/build/openseadragon/openseadragon.js';
+
+    if (osd){
+        osd.viewers[myId].viewer = undefined;
+    }
+
+    // await import(new URL(osdUrl, import.meta.url));
+    await loadScriptAsync(osdUrl);
+
+    const viewerOptions = osd ? osd.viewerOptions :
+        {
+            prefixUrl: "/build/openseadragon/images/",
+
+            showRotationControl: true,
+            showFlipControl: true,
+            showNavigator: true,
+
+            rotationIncrement: 22.5,
+            zoomPerScroll: Math.sqrt(Math.SQRT2),
+
+            minZoomLevel: 0.01,
+            maxZoomPixelRatio: 4.00,
+
+        };
+
+    const thisViewerOptions = osd ? osd.viewers[myId].viewerOptions :
+        {
+            tileSources:
+            {
+                tileSource: "/test/data/monalisa.dzi",
+            },
+            drawer: 'drawer',
+            maxImageCacheCount: 2000,   // set to a big number as we only draw one layer yet
+            maxTilesPerFrame: 9999,     // why add extra delays ???? !!!
+            lodRangeFactor: 1,
+        }
+
+    Object.assign( viewerOptions, thisViewerOptions, {id: "osd"} );
+
+    const viewer = OpenSeadragon( viewerOptions );
+
+    if (osd){
+        osd.viewers[myId].viewer = viewer;
+        osd.viewers[myId].OpenSeadragon = OpenSeadragon;
+        const syncHandler = osd.syncHandler;
+        if( syncHandler ) {
+            viewer.addHandler( "pan", syncHandler, {id: myId});
+            viewer.addHandler( "zoom", syncHandler, {id: myId});
+            viewer.addHandler( "rotate", syncHandler, {id: myId});
+            viewer.addHandler( "flip", syncHandler, {id: myId});
+        }
+        if(myId === 0){
+            viewer.addHandler( "animation", osd.animationHandler );
+        }
+    }
+
+    function loadScriptAsync(url) {
+        return new Promise((resolve, reject) => {
+            const s = document.createElement("script");
+            s.src = url;
+            s.async = true;
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+
+  </script>
+</body>
+</html>
