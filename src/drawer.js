@@ -37,7 +37,6 @@ const OpenSeadragon = $; // (re)alias back to OpenSeadragon for JSDoc
         el.style.transform = `translate(${dx}px, ${dy}px)`;
     }
 
-
 // helper functions and a class
 //TODO: move to the TiledImage class
 
@@ -104,6 +103,10 @@ class Composite {
 }
 void Composite;
 
+function getTile( tiledImage, level, x, y){
+    return tiledImage._getTile(x, y, level, Date.now(), tiledImage.source.getNumTiles(level));
+}
+
 function getComposite( tiledImage, level ) {
 
     let drawArea = tiledImage.getDrawArea();
@@ -112,6 +115,8 @@ function getComposite( tiledImage, level ) {
     }
 
     const imgSize = tiledImage.getContentSize();
+    const imgImage = new $.Rect(0, 0, imgSize.x, imgSize.y);
+
     const maxLevel =  tiledImage.source.maxLevel;
 
     const tileWidth = tiledImage.source.getTileWidth(maxLevel);         //DAO251: replace with just .tileWidth      // we only support 2x2 tile pyramids !!!!
@@ -120,8 +125,12 @@ function getComposite( tiledImage, level ) {
 
     const levelScale = 2 ** ( maxLevel - level );
 
-    // drawArea Rectangle in image pixels (expand to integer boundaries ???)
-    let imgDrawArea = drawArea.times(imgSize.x).expandToInegerBounds();
+    // drawArea Rectangle in image pixels
+    // let imgDrawArea = drawArea.times(imgSize.x).apply(Math.round);
+
+    let imgDrawArea = drawArea.times(imgSize.x).expandToIntegerBounds();
+    // expanding to integer boundaries may cause negative x,y (then negative tile x,y , etc.)
+    imgDrawArea = imgDrawArea.intersection(imgImage);
 
     // clip here
     const imgClip = tiledImage.getClip();
@@ -136,7 +145,7 @@ function getComposite( tiledImage, level ) {
     }
 
     const imgTileSize = tileSize.times(levelScale);                                 // tileSize in image pixels
-    const tilComposite = imgDrawArea.unscale(imgTileSize).expandToInegerBounds();   // composite context rectangle in tile numbers
+    const tilComposite = imgDrawArea.unscale(imgTileSize).expandToIntegerBounds();   // composite context rectangle in tile numbers
     const lyrComposite = tilComposite.scale(tileSize);                              // Composite context rectangle in level pixels
     const lyrDrawArea = imgDrawArea.times( 1 / levelScale ).apply(Math.round);      // DrawArea in level pixels
 
@@ -151,46 +160,144 @@ function getComposite( tiledImage, level ) {
 
     compositeContext.translate( -lyrComposite.x, -lyrComposite.y );
 
+    function drawPlaceholder( tiledImage, ctx, dx, dy, dw, dh){
+        const fillStyle = ( typeof tiledImage.placeholderFillStyle === "function" ?
+                    tiledImage.placeholderFillStyle(tiledImage, ctx) :
+                    tiledImage.placeholderFillStyle
+                );
+        if (fillStyle) {
+            ctx.save();
+            ctx.fillStyle = fillStyle;
+            ctx.fillRect(dx, dy, dw, dh);
+            ctx.restore();
+        }
+    }
+    // void drawPlaceholder;
+
     // TODO: make it a separate method after moving to TiledImage class
-    function drawTile( level, x, y){
-        const numTiles = tiledImage.source.getNumTiles(level);          //DAO251: TiledImage._getTile need this for some reason ?????
-        const tile = tiledImage._getTile(x, y, level, 0, numTiles);
-
-        const posX = x * tileWidth;             // do not use compositeContext.translate here !!!! context.save()/restore() are not free
-        const posY = y * tileHeight;
-
-        if (tile.loaded){
+    //  OR: make it a method of the Tile class
+    //  returns the drawn tile or undefined if e.g. not loaded
+    //  sx, sy... - source coords; dx, dy... - destination coords
+    function drawTile(tile, ctx, sx, sy, sw, sh, dx, dy, dw, dh){
+        // if (tile && tile.exists && !tile.loaded && !tile.loading){
+        //     tile.tiledImage._loadTile( tile, $.now());
+        //     return undefined;
+        // }
+        if (tile && tile.exists && tile.loaded){
             const tileImage = tile.getImage();
-            compositeContext.drawImage(tileImage, posX, posY);
-        }
 
-        if (tiledImage.debugMode){
-            compositeContext.save(); // OK in debug mode
-            {
-                // styles for debugMode
-                compositeContext.strokeStyle = "rgba(255, 63, 255)";
-                compositeContext.fillStyle = "rgba(255, 63, 255)";
-                compositeContext.font = "20px monospace";
-                compositeContext.lineWidth = 1;
-
-                compositeContext.translate(posX, posY);
-                compositeContext.strokeRect( 0.5, 0.5, tileWidth - 1, tileHeight - 1);
-                if (tiledImage.flipped){
-                    compositeContext.textAlign = "right";
-                    compositeContext.scale(-1, 1);
+            // trim off tileOverlap here (if not trimmed off at ImageLoader !!!)
+            //DAO251: use the __trimOverlapsOnLoad OSD option while refactoring
+            //TODO: remove it when implemented at ImageLoader
+            if( !$.__trimOverlapsOnLoad ){
+                const tileOverlap =  tile.tiledImage.source.tileOverlap;
+                if ( tileOverlap ){
+                    sx += tileOverlap * Math.sign(tile.x);
+                    sy += tileOverlap * Math.sign(tile.y);
                 }
-                compositeContext.fillText(`  ${level}:${x}:${y}  `, 0, 25);
             }
-            compositeContext.restore();
-        }
 
+            ctx.drawImage(tileImage, sx, sy, sw, sh, dx, dy, dw, dh);
+            return tile;
+        }
+        return undefined;
     }
 
-    for( let x = 0; x < tilComposite.width; x++ ){
-        for( let y = 0; y < tilComposite.height; y++ ){
-            drawTile( level, tilComposite.x + x, tilComposite.y + y);
+    function drawTileCascade( tile, ctx, dx, dy, dw, dh)
+    {
+        const { level, x, y } = tile;
+        const minLevel = tile.tiledImage.source.minLevel;
+
+        let tileLevel = level;      // level of the tile to draw
+        let drawn;                  // return value : actually drawn tile
+
+        // initial source rect (full tile from level)
+        let lsx = 0,
+            lsy = 0,
+            lsw = dw,
+            lsh = dh;
+
+        while (!drawn) {
+
+            // Try drawing the tile from tileLevel
+            drawn = drawTile(tile, ctx, lsx, lsy, lsw, lsh, dx, dy, dw, dh);
+            if(drawn) return drawn;                                             // eslint-disable-line curly
+
+            // fallback
+            tileLevel--;
+            if (tileLevel < minLevel) return undefined;                         // eslint-disable-line curly
+
+            // Compute next fallback tile
+            const shift = level - tileLevel;
+            tile = getTile( tiledImage, tileLevel, x >> shift, y >> shift );
+
+            // Compute fallback source rect
+            const scale = 1 << shift;
+            const mask  = scale - 1;
+
+            lsw = dw / scale;
+            lsh = dh / scale;
+            lsx = (x & mask) * lsw;
+            lsy = (y & mask) * lsh;
+        }
+
+        return undefined;
+    }
+
+
+    function drawDebugInfo(tile, ctx, dx, dy, dw, dh){
+        ctx.save(); // OK in debug mode
+        {
+            // styles for debugMode
+            ctx.strokeStyle = "rgba(255, 63, 255)";
+            ctx.fillStyle = "rgba(255, 63, 255)";
+            ctx.font = "20px monospace";
+            ctx.lineWidth = 1;
+
+            ctx.translate(dx, dy);
+            ctx.strokeRect( 0.5, 0.5, dw - 1, dh - 1);
+            if (tiledImage.flipped){
+                ctx.textAlign = "right";
+                ctx.scale(-1, 1);
+            }
+            ctx.fillText(`  ${tile.level}:${tile.x}:${tile.y}  `, 0, 25);
+        }
+        ctx.restore();
+    }
+
+    // iterateXY wrapper for the XY loop. Just in case we decide to change the order later...
+    function iterateXY(W, H, visit) {
+        for( let x = 0; x < W; x++ ){
+            for( let y = 0; y < H; y++ ){
+                visit(x, y);
+            }
         }
     }
+
+    iterateXY( tilComposite.width, tilComposite.height,
+        (x, y) => {
+
+            const tile = getTile(tiledImage, level, tilComposite.x + x, tilComposite.y + y );
+
+            const drawn = drawTileCascade( tile, compositeContext,
+                tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
+            );
+
+            if ( !drawn ){
+                drawPlaceholder( tiledImage, compositeContext,
+                    tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
+                );
+                return;
+            }
+
+            // debug info MUST be drawn here !!!! Otherwise it may cause own bugs to debug...
+            if (tiledImage.debugMode){
+                drawDebugInfo( drawn, compositeContext,
+                    tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
+                );
+            }
+        }
+    );
 
     const composite = {
         context: compositeContext,
@@ -223,7 +330,7 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         this.context = this.canvas.getContext( '2d' );
 
         // this.snapToDevicePixels: default -> true
-        this.__snapToDevicePixels = this.viewer.snapToDevicePixels === undefined ? true : !!this.viewer.snapToDevicePixels;
+        this.__snapToDevicePixels = !!this.viewer.snapToDevicePixels;
 
         // check for DPR changes every 250ms
         // shouldn't this be done for the entire OSD ???

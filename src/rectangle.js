@@ -590,7 +590,7 @@ $.Rect.prototype = {
             );
     },
 
-    expandToInegerBounds: function(){
+    expandToIntegerBounds: function(){
             const x = Math.floor(this.x);
             const y = Math.floor(this.y);
             return new $.Rect(

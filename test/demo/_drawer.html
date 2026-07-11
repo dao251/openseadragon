@@ -9,14 +9,14 @@
         .openseadragon1 {
             /* DEMO: to provide device pixel misalignment (simulate real-life page layouts) */
             /* 0.4px guarantees misalignment for DPR = 1.5, 2, 3  */
-            position: relative;
-            left: 0.4px;
-            top: 0.4px;
+            /* position: relative; */
+            /* left: 0.4px; */
+            /* top: 0.4px; */
             margin: 0px;
             border: 0px;
             width: 512px;
             height: 768px;
-            background-color: rgb(223,223,255);
+            background-color: rgb(200,200,255);
         }
         .openseadragon-canvas:focus {
             outline: none;
@@ -83,6 +83,8 @@
 
     <script id="code" type="text/javascript">
 
+
+
         const images = [
             {
                 tileSource: "../../test/data/monalisa.dzi",
@@ -91,7 +93,17 @@
             },
             {
                 text: "DZI BBlue : 1000x1000 PNG",
-                tileSource: "../../test/data/bblue.dzi",
+                tileSource: {
+                    tileSource: "../../test/data/bblue.dzi",
+                    placeholderFillStyle: "red",
+                    // function(tiledImage, context) {
+                    //     // Create a gray to light-gray linear gradient using the correct context
+                    //     var gradient = context.createLinearGradient(0, 0, 256, 256);
+                    //     gradient.addColorStop(0, '#dddddd');
+                    //     gradient.addColorStop(1, '#ffffff');
+                    //     return gradient;
+                    // },
+                 },
                 clip: [ 200, 200, 500, 500 ],
             },
             {
@@ -116,14 +128,21 @@
                 text: "OpenStreetMaps",
                 tileSource: { type: 'openstreetmaps', width: 67108864, height: 67108864 },
             },
+            {
+                tileSource: "https://openseadragon.github.io/example-images/duomo/duomo.dzi",
+                text: "DZI Duomo : (13920x10200 px) image tiled into 254x254 (jpg) tiles with 1px overlap",
+                clip: [ 1024, 768, 3072, 4096 ],
+            },
+
+
         ];
         const viewers = [
                 {   version: "dao251 5.1.0 'drawer'",
                     url: "../../build/openseadragon/openseadragon.js",
                     viewerOptions:{
                         drawer:'drawer',
-                        maxImageCacheCount: 2000,   // set to a big number as we only draw one layer yet
-                        maxTilesPerFrame: 9999,     // don't need extra delays !!!
+                        maxImageCacheCount: 1000,
+                        snapToDevicePixels: true,      // does not work yet...
                         lodRangeFactor: 1,
                         fetchOptions:{},
                     }
