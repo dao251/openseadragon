@@ -23,6 +23,14 @@ $.TileCache = class {
     }
 
     /**
+     * Expands the limit of the cache if needed
+     * @param {number} limit - New to set limit (if larger than the existing one)
+     */
+    expand(limit){
+        this.__limit = Math.max(this.__limit, limit);
+    }
+
+    /**
      * Checks if a tile exists in the cache.
      * @param {string} key - The unique key for the tile.
      * @returns {boolean} True if the tile exists, false otherwise.

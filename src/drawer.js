@@ -145,7 +145,7 @@ function getComposite( tiledImage, level ) {
     }
 
     const imgTileSize = tileSize.times(levelScale);                                 // tileSize in image pixels
-    const tilComposite = imgDrawArea.unscale(imgTileSize).expandToIntegerBounds();   // composite context rectangle in tile numbers
+    const tilComposite = imgDrawArea.unscale(imgTileSize).expandToIntegerBounds();  // composite context rectangle in tile numbers
     const lyrComposite = tilComposite.scale(tileSize);                              // Composite context rectangle in level pixels
     const lyrDrawArea = imgDrawArea.times( 1 / levelScale ).apply(Math.round);      // DrawArea in level pixels
 
@@ -153,12 +153,36 @@ function getComposite( tiledImage, level ) {
         return undefined;
     }
 
+    const composite = {
+        // context: compositeContext,
+        imgSize: imgSize,
+        level: level,
+        levelScale: levelScale,
+        tilComposite: tilComposite,
+        lyrDrawArea: lyrDrawArea,
+        lyrComposite: lyrComposite,
+        tileWidth: tileWidth,
+        tileHeight: tileHeight,
+    };
+
+    return composite;
+}
+
+function drawComposite( tiledImage, composite ) {
+
+    const lyrComposite = composite.lyrComposite;
+    const level = composite.level;
+    const tilComposite = composite.tilComposite;
+    const tileWidth = composite.tileWidth;
+    const tileHeight = composite.tileHeight;
+
     // stich tiles on compositeCanvas
     const compositeCanvas = $.Utils.newOffscreenCanvas(lyrComposite.width, lyrComposite.height);
     const compositeContext = compositeCanvas.getContext('2d');
     compositeContext.imageSmoothingEnabled = false;   // DON'T smooth, all coordinates are Integers, no scale, no rotation !!!!
-
     compositeContext.translate( -lyrComposite.x, -lyrComposite.y );
+
+    composite.context = compositeContext;
 
     function drawPlaceholder( tiledImage, ctx, dx, dy, dw, dh){
         const fillStyle = ( typeof tiledImage.placeholderFillStyle === "function" ?
@@ -172,7 +196,6 @@ function getComposite( tiledImage, level ) {
             ctx.restore();
         }
     }
-    // void drawPlaceholder;
 
     // TODO: make it a separate method after moving to TiledImage class
     //  OR: make it a method of the Tile class
@@ -299,15 +322,6 @@ function getComposite( tiledImage, level ) {
         }
     );
 
-    const composite = {
-        context: compositeContext,
-        imgSize: imgSize,
-        levelScale: levelScale,
-        lyrDrawArea: lyrDrawArea,
-        lyrComposite: lyrComposite,
-    };
-
-    return composite;
 }
 
 /**
@@ -449,6 +463,8 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         }
 
         // draw tiledImages onto this.context
+        this.__tileCount = 0;
+
         for(const tiledImage of tiledImages){
             if (tiledImage.opacity !== 0) {
                 ctx.imageSmoothingEnabled = this._imageSmoothingEnabled;
@@ -469,6 +485,11 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         if(!composite){
             return;
         }
+
+        this.__tileCount += composite.tilComposite.width * composite.tilComposite.height;
+        tiledImage._tileCache.expand( this.__tileCount * 2 );
+
+        drawComposite(tiledImage, composite);
 
         const lyrComposite = composite.lyrComposite;
         const imgSize = composite.imgSize;
