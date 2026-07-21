@@ -82,33 +82,20 @@ function getZoomLevel(tiledImage, zoom) {                       // 'zoom' means 
 }
 
 
-function getCurrentTileScale(tiledImage, level){
+function getTileScale(tiledImage, level){
     const zoom = tiledImage.viewport.getZoom(true);
-    const imageZoom = tiledImage.viewportToImageZoom(zoom);
-    const tileScale = imageZoom * $.pixelDensityRatio * 2 ** (tiledImage.source.maxLevel - level);
+    const imageZoom = tiledImage.viewportToImageZoom(zoom) * $.pixelDensityRatio;
+    const tileScale = imageZoom * 2 ** (tiledImage.source.maxLevel - level);
     return tileScale;
 }
 
 //TODO: Make Composite a class, probably after moving to TiledImage ??
-class Composite {
-    constructor (tiledImage, level){
-        this.tiledImage = tiledImage;
-        this.level = level;
-    }
-
-    // returns true if the tile was drawn
-    drawTile(level, x, y){
-        return false;
-    }
-}
-void Composite;
 
 function getTile( tiledImage, level, x, y){
     return tiledImage._getTile(x, y, level, Date.now(), tiledImage.source.getNumTiles(level));
 }
 
-function getComposite( tiledImage, level ) {
-
+function getCompositeGeometry( tiledImage, level ) {
     let drawArea = tiledImage.getDrawArea();
     if (!drawArea){
         return undefined;
@@ -126,11 +113,8 @@ function getComposite( tiledImage, level ) {
     const levelScale = 2 ** ( maxLevel - level );
 
     // drawArea Rectangle in image pixels
-    // let imgDrawArea = drawArea.times(imgSize.x).apply(Math.round);
-
-    let imgDrawArea = drawArea.times(imgSize.x).expandToIntegerBounds();
     // expanding to integer boundaries may cause negative x,y (then negative tile x,y , etc.)
-    imgDrawArea = imgDrawArea.intersection(imgImage);
+    let imgDrawArea = drawArea.times(imgSize.x).expandToIntegerBounds().intersection(imgImage);
 
     // clip here
     const imgClip = tiledImage.getClip();
@@ -155,7 +139,7 @@ function getComposite( tiledImage, level ) {
 
     const composite = {
         // context: compositeContext,
-        imgSize: imgSize,
+        imgImage: imgImage,
         level: level,
         levelScale: levelScale,
         tilComposite: tilComposite,
@@ -168,7 +152,7 @@ function getComposite( tiledImage, level ) {
     return composite;
 }
 
-function drawComposite( tiledImage, composite ) {
+function getComposite( tiledImage, composite ) {
 
     const lyrComposite = composite.lyrComposite;
     const level = composite.level;
@@ -426,8 +410,6 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         // prepare new frame
         const dpr = $.pixelDensityRatio;
 
-        // const size = this.viewport.getContainerSize()
-        //     .times(dpr).apply(Math.ceil);      // must be integer (in device physical pixels)
         const canvas = this.canvas;
         const container = this.viewer.container;
 
@@ -481,81 +463,76 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
 
         const currentLevel =  getZoomLevel( tiledImage );
 
-        const composite = getComposite(tiledImage, currentLevel);
+        const composite = getCompositeGeometry(tiledImage, currentLevel);
         if(!composite){
-            return;
+            return; // nothing to draw
         }
 
+        // expand cache size if necessary (make cache size at least twice current scren )
         this.__tileCount += composite.tilComposite.width * composite.tilComposite.height;
         tiledImage._tileCache.expand( this.__tileCount * 2 );
 
-        drawComposite(tiledImage, composite);
+        // draw tiles on the composite canvas
+        getComposite(tiledImage, composite);
 
-        const lyrComposite = composite.lyrComposite;
-        const imgSize = composite.imgSize;
-        const lyrDrawArea = composite.lyrDrawArea;
         const levelScale = composite.levelScale;
-        let imgDrawArea = lyrDrawArea.times(levelScale);                                    // correct
+        const lyrImgWidth = composite.imgImage.width / levelScale;
 
-        if( tiledImage.flipped ){
-            imgDrawArea =  imgDrawArea.flip( imgSize.x / 2 );
-        }
+        let lyrComposite = composite.lyrComposite;
+        let lyrDrawArea = composite.lyrDrawArea;
 
-        let tl = imgDrawArea.getTopLeft();
-        let tr = imgDrawArea.getTopRight();
-        let bl = imgDrawArea.getBottomLeft();
-        let br = imgDrawArea.getBottomRight();
+        // top-left position of the draw area in image px
+        const imgTL = new $.Point(
+            tiledImage.flipped ? lyrImgWidth - lyrComposite.x : lyrComposite.x,
+            lyrComposite.y
+        ).times(levelScale);
 
-        if( tiledImage.flipped ){   // swap the drawArea corners
-            [tl, tr] = [tr, tl];
-            [bl, br] = [br, bl];
-        }
+        // top-left position of the drawArea on viewport (in device px)
+        const devTL = this.viewport.viewportToViewerElementCoordinates(
+                tiledImage.imageToViewportCoordinates(imgTL.x, imgTL.y, true)
+            )
+            .times($.pixelDensityRatio);
 
-        let posTL = this.viewport.viewportToViewerElementCoordinates(       // top-left position of the drawArea in device px
-                tiledImage.imageToViewportCoordinates(tl.x, tl.y, true)
-            ).times($.pixelDensityRatio);
-        let posTR = this.viewport.viewportToViewerElementCoordinates(       // top-right position of the drawArea in device px
-                tiledImage.imageToViewportCoordinates(tr.x, tr.y, true)
-            ).times($.pixelDensityRatio);
-        let posBR = this.viewport.viewportToViewerElementCoordinates(       // bottom-right position of the drawArea in device px
-                tiledImage.imageToViewportCoordinates(br.x, br.y, true)
-            ).times($.pixelDensityRatio);
+        const rotationDeg = tiledImage.getRotation(true) + this.viewer.viewport.getRotation(true);   // current rotation
+        const scale = getTileScale(tiledImage, currentLevel);
 
-        //DAO251: trying to adjust to device pixels....
-        if ( this.__snapToDevicePixels) {
-            posTL = posTL.apply(Math.round);
-            posBR = posBR.apply(Math.round);
-        }
+        // compute Affine Coefficients
+        let a, b, c, d, e, f;
 
-        //DAO251: if we decide to calculate TR from TL,BR - do it here !!!
+        // 1) rotation in radians
+        const rot = rotationDeg * Math.PI / 180;
+        const scaleCos = scale * Math.cos(rot);
+        const scaleSin = scale * Math.sin(rot);
 
-        if ( this.__snapToDevicePixels) {
-            posTR = posTR.apply(Math.round); // .apply(Math.round) may break right angles... ???
-        }
+        // 2) scale + rotate matrix
+        a = tiledImage.flipped ? -scaleCos : scaleCos;
+        b = tiledImage.flipped ? -scaleSin : scaleSin;
+        c = -scaleSin;
+        d = scaleCos;
 
-        // Affine coefficients
-        const a = (posTR.x - posTL.x) / lyrDrawArea.width;
-        const b = (posTR.y - posTL.y) / lyrDrawArea.width;
-        const c = (posBR.x - posTR.x) / lyrDrawArea.height;
-        const d = (posBR.y - posTR.y) / lyrDrawArea.height;
-        const e = posTL.x;
-        const f = posTL.y;
+        // 3) translation so that (0, 0) maps to TL
+        e = Math.round(devTL.x);
+        f = Math.round(devTL.y);
+
+        let sx = lyrDrawArea.x - lyrComposite.x;
+        let sy = lyrDrawArea.y - lyrComposite.y;
+        let sw = lyrDrawArea.width;
+        let sh = lyrDrawArea.height;
 
         const ctx = this.context;
 
         ctx.save();
-        ctx.transform(a, b, c, d, e, f);
-        ctx.drawImage(
-            composite.context.canvas,
-            lyrDrawArea.x - lyrComposite.x, lyrDrawArea.y - lyrComposite.y,
-            lyrDrawArea.width, lyrDrawArea.height,
-            0, 0, lyrDrawArea.width, lyrDrawArea.height,
-        );
+            ctx.transform(a, b, c, d, e, f);
+            ctx.drawImage(
+                composite.context.canvas,
+                sx, sy, sw, sh,
+                sx, sy, sw, sh,
+            );
         ctx.restore();
 
         //TODO: where to move these ??? or keep for futher optimizations ???
         tiledImage.lastDrawnLevel = currentLevel;
-        tiledImage.lastDrawnTileScale = getCurrentTileScale(tiledImage, currentLevel);
+        tiledImage.lastDrawnTileScale = scale;
 
     }
 };
