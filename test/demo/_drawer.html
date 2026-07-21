@@ -96,13 +96,6 @@
                 tileSource: {
                     tileSource: "../../test/data/bblue.dzi",
                     placeholderFillStyle: "red",
-                    // function(tiledImage, context) {
-                    //     // Create a gray to light-gray linear gradient using the correct context
-                    //     var gradient = context.createLinearGradient(0, 0, 256, 256);
-                    //     gradient.addColorStop(0, '#dddddd');
-                    //     gradient.addColorStop(1, '#ffffff');
-                    //     return gradient;
-                    // },
                  },
                 clip: [ 200, 200, 500, 500 ],
             },
@@ -125,8 +118,8 @@
                 clip: [ 1000, 1000, 1000, 1000 ],
             },
             {
-                text: "OpenStreetMaps",
-                tileSource: { type: 'openstreetmaps', width: 67108864, height: 67108864 },
+                text: "OpenStreetMap",
+                tileSource: { type: 'openstreetmaps', width: 67108864, height: 67108864, tilesUrl: "https://tile.openstreetmap.org/" },
             },
             {
                 tileSource: "https://openseadragon.github.io/example-images/duomo/duomo.dzi",
