@@ -9,14 +9,13 @@
         .openseadragon1 {
             /* DEMO: to provide device pixel misalignment (simulate real-life page layouts) */
             /* 0.4px guarantees misalignment for DPR = 1.5, 2, 3  */
-            /* position: relative; */
-            /* left: 0.4px; */
-            /* top: 0.4px; */
+            position: relative;
+            left: 0.4px;
+            top: 0.4px;
             margin: 0px;
             border: 0px;
             width: 512px;
             height: 768px;
-            background-color: rgb(200,200,255);
         }
         .openseadragon-canvas:focus {
             outline: none;
@@ -35,13 +34,13 @@
 </head>
 <body>
     <div>
-        <select id="images" onchange="restartViewers()">
+        <select id="images" onchange="reloadPage()">
         </select>
     </div>
     <div style="width: 300px; margin-top:30px; display: flex;">
         <div>
-            <select id="viewer0" onchange="restartViewers()"></select>
-            <iframe id="0" class="openseadragon1"></iframe>
+            <select id="viewer0" onchange="reloadPage()"></select>
+            <iframe id="0" class="openseadragon1" src="_viewer.html"></iframe>
         </div>
         <div style="display:flex; flex-direction:column;">
         <form id="control_form" onsubmit="return false;">
@@ -55,8 +54,10 @@
             <button id="perfect-btn" onclick="onPerfect();">Zoom to Pixels</button>
             <label> </label>
             <label>&lt;-LoD Range Factor: <span id="lrf">1.0</span></label>
-            <input type="range" min="0" max="4" step="0.1" value="1" oninput="setRangeFactor(this.value)">
+            <input id="lod" type="range" min="0" max="4" step="0.1" value="1" oninput="setRangeFactor(this.value)">
             <!-- <label>&lt;-<input type="checkbox" onchange="snapToDevice( this.checked )" checked>Snap To DevPx</label> -->
+            <label> </label>
+            <label><input type="checkbox" onchange="debug(this.checked)">Show Tile Grid</label>
             <label> </label>
             <div style="border-bottom:1px solid #000;"></div>
             <label> </label>
@@ -67,23 +68,28 @@
             <label><input type="checkbox" onchange="opacity(this.checked)">Opacity</label>
             <div>GCO: <select onchange="onGCOselect(this.value)" id="gco_select"></select></div>
             <label> </label>
-            <label><input type="checkbox" onchange="debug(this.checked)">Tile Grid</label>
             <label><input type="checkbox" onchange="smooth(this.checked)" checked>Smooth</label>
             <!-- <label><input type="checkbox" onchange="snapToDevice(this.checked)" checked>Snap to Device Px</label> -->
+            <!-- <label> </label> -->
+            <!-- <div style="border-bottom:1px solid #000;"></div> -->
+            <!-- <label> </label> -->
+            <!-- <label>Performance</label> -->
+            <!-- <label> </label> -->
+            <!-- <label><input type="checkbox" onchange="perf(this.checked)">Measure</label> -->
         </form>
     </div>
         <div>
-            <select id="viewer1" onchange="restartViewers()"></select>
-            <iframe id="1" class="openseadragon1"></iframe>
+            <select id="viewer1" onchange="reloadPage()"></select>
+            <iframe id="1" class="openseadragon1" src="_viewer.html"></iframe>
         </div>
     </div>
     <!-- <div>
         <pre id="out" style="height:400px; width:1100px; overflow-y:auto;"></pre>
     </div> -->
 
-    <script id="code" type="text/javascript">
+    <script id="code" type="module">
 
-
+        import { wrapMethodWithPerf } from "./perf-counter.js";
 
         const images = [
             {
@@ -92,7 +98,7 @@
                 clip: [ 2000, 2000, 2000, 4000 ],
             },
             {
-                text: "DZI BBlue : 1000x1000 PNG",
+                text: "DZI BBlue : 1000x1000 (256x256 PNG tiles)",
                 tileSource: {
                     tileSource: "../../test/data/bblue.dzi",
                     placeholderFillStyle: "red",
@@ -100,7 +106,7 @@
                 clip: [ 200, 200, 500, 500 ],
             },
             {
-                text: "IIP TileSource: Huge WSI slide tiled into 256x256 JPEG tiles with no overlap",
+                text: "IIP TileSource: Huge WSI slide (256x256 JPEG tiles with no overlap)",
                 tileSource: {
                     iipsrv: "https://merovingio.c2rmf.cnrs.fr/fcgi-bin/iipsrv.fcgi",
                     image:  "77917.ome.tif",
@@ -113,19 +119,29 @@
                 clip: [ 20000, 15000, 10000, 10000],
             },
             {
-                text: 'DZI : 4096x4096 PNG - 1px grid (every 8px)',
+                text: 'DZI : 4096x4096 - 1px grid (every 8px) (256x256 PNG tiles)',
                 tileSource: "../../test/data/8px_grid.dzi",
                 clip: [ 1000, 1000, 1000, 1000 ],
             },
             {
-                text: "OpenStreetMap",
-                tileSource: { type: 'openstreetmaps', width: 67108864, height: 67108864, tilesUrl: "https://tile.openstreetmap.org/" },
+                text: "OpenStreetMap (non-CORS tile provider)",
+                tileSource: {
+                    type: 'openstreetmaps', width: 67108864, height: 67108864,
+                    // tilesUrl: "https://tile.openstreetmap.org/",
+                    tilesUrl: "https://tile.memomaps.de/tilegen/", // non-CORS
+                    lodRangeFactor: 2,
+                },
             },
             {
                 tileSource: "https://openseadragon.github.io/example-images/duomo/duomo.dzi",
-                text: "DZI Duomo : (13920x10200 px) image tiled into 254x254 (jpg) tiles with 1px overlap",
+                text: "DZI Duomo : (13920x10200 px) image ( 254x254 JPEG tiles with 1px overlap)",
                 clip: [ 1024, 768, 3072, 4096 ],
             },
+            // {
+            //     tileSource: "../../test/data/testpattern.dzi",
+            //     text: "Rainbow grid",
+            //     // clip: [ 2000, 2000, 2000, 4000 ],
+            // },
 
 
         ];
@@ -137,7 +153,7 @@
                         maxImageCacheCount: 1000,
                         snapToDevicePixels: true,      // does not work yet...
                         lodRangeFactor: 1,
-                        fetchOptions:{},
+                        // fetchOptions:{},
                     }
                 },
                 {   version: "OSD 6.0.2 'canvas'",
@@ -162,16 +178,22 @@
                 },
             ]
 
+        const params = new URLSearchParams(location.search);
+        const demoImage = Number(params.get("i")) || 0;
+        const dParam = params.get("d") || 1 ;
+        let compareTo = 1;
+        if ( dParam === 'webgl'  ) compareTo = 2
+        if (!isNaN(Number(dParam)) ) compareTo = Number(dParam);
+
         window.OSD = {
             viewerOptions : {
                 prefixUrl: "../../build/openseadragon/images/",
                 showRotationControl: true,
                 showFlipControl: true,
-                showNavigator: true,
+                // showNavigator: true,
 
                 rotationIncrement: 22.5,
-                zoomPerScroll: 1.2,
-                lodRangeFactor: 1,
+                zoomPerScroll: 1.1,   // "slow" mouse wheel for demo purposes
 
                 minZoomLevel: 0.01,
                 maxZoomPixelRatio: 4.00,
@@ -182,32 +204,32 @@
         for (let i=0; i<images.length; i++){
             imageSelector.add(new Option( images[i].text, i));
         }
+        imageSelector.value = demoImage;
 
-        document.getElementById("viewer0").replaceChildren();
-        document.getElementById("viewer1").replaceChildren();
         buildViewerSelect();
+        document.getElementById("viewer1").value = compareTo;
 
-        function restartViewers () {
-            OSD.viewerOptions.tileSources = [
-                    { tileSource: { type:"image", url:"../../test/data/abstract_2048.png", buildPyramid: false}, opacity: 0 },
-                    images[imageSelector.value].tileSource,
-                ];
-            document.getElementById("control_form")?.reset();
-            document.getElementById("gco_select").replaceChildren();
-            buildGCOSelect();
-
-            OSD.viewers = [
-                viewers[document.getElementById("viewer0").value],
-                viewers[document.getElementById("viewer1").value],
-            ];
-
-            document.getElementById(0).src = document.getElementById(1).src = "_viewer.html";
+        window.reloadPage = function (){
+            location.search = `?i=${imageSelector.value}&d=${document.getElementById("viewer1").value}`
         }
-        restartViewers();
+
+        OSD.viewerOptions.tileSources = [
+                { tileSource: { type:"image", url:"../../test/data/abstract_2048.png", buildPyramid: false}, opacity: 0 },
+                images[imageSelector.value].tileSource,
+            ];
+        // document.getElementById("control_form")?.reset();
+        document.getElementById("gco_select").replaceChildren();
+        buildGCOSelect();
+
+        OSD.viewers = [
+            viewers[document.getElementById("viewer0").value],
+            viewers[document.getElementById("viewer1").value],
+        ];
 
         let isSyncing = false;
 
         OSD.syncHandler = function (event) {
+
             const from = this.userData?.id
             const me    = OSD.viewers[from].viewer;
             const other = OSD.viewers[Number(!from)].viewer;
@@ -237,20 +259,23 @@
                 document.getElementById("scale").value = scale.toFixed(17);
                 document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
                 document.getElementById("level").textContent = level;
+                const lodFactor = OSD.viewers[0].viewer.world.getItemAt(1).lodRangeFactor;
+                document.getElementById('lod').value = lodFactor;
+                document.getElementById('lrf').textContent = lodFactor.toFixed(1);
             }catch(e){}
         }
 
-        function debug(v) {
+        window.debug = function(v) {
             OSD.viewers[0].viewer.setDebugMode(v);
             OSD.viewers[1].viewer.setDebugMode(v);
         }
 
-        function flip(v) {
+        window.flip = function(v) {
             OSD.viewers[0].viewer.world.getItemAt(1).setFlip(v);
             OSD.viewers[1].viewer.world.getItemAt(1).setFlip(v);
         }
 
-        function clip(v) {
+        window.clip = function(v) {
             const rect = (v ? images[imageSelector.value].clip : undefined);
             if(rect){
                 OSD.viewers[0].viewer.world.getItemAt(1).setClip(
@@ -265,34 +290,42 @@
             }
         }
 
-        function rotate(v) {
+        window.rotate = function(v) {
             OSD.viewers[0].viewer.world.getItemAt(1).setRotation(v);
             OSD.viewers[1].viewer.world.getItemAt(1).setRotation(v);
         }
 
-        function opacity(v) {
+        window.opacity = function(v) {
             OSD.viewers[0].viewer.world.getItemAt(0).setOpacity(v?1:0);
             OSD.viewers[1].viewer.world.getItemAt(0).setOpacity(v?1:0);
             OSD.viewers[0].viewer.world.getItemAt(1).setOpacity(v?.6:1);
             OSD.viewers[1].viewer.world.getItemAt(1).setOpacity(v?.6:1);
         }
 
-        function smooth(v) {
+        window.smooth = function(v) {
             OSD.viewers[0].viewer.drawer.setImageSmoothingEnabled(v);
             OSD.viewers[1].viewer.drawer.setImageSmoothingEnabled(v);
         }
 
-        function snapToDevice(v) {
-            OSD.viewers[0].viewer.drawer.snapToDevicePixels = v;
+        let unwrap0, unwrap1;
+
+        window.perf = function(v) {
+            if (v) {
+                unwrap0 = wrapMethodWithPerf( OSD.viewers[0].viewer.drawer,"draw", 600);
+                unwrap1 = wrapMethodWithPerf( OSD.viewers[1].viewer.drawer,"draw", 600);
+            }else{
+                unwrap0();
+                unwrap1();
+            }
         }
 
-        function setRangeFactor(v) {
+        window.setRangeFactor = function(v) {
             document.getElementById('lrf').textContent = Number(v).toFixed(1)
-            OSD.viewers[0].viewer.lodRangeFactor = Number(v);
+            OSD.viewers[0].viewer.world.getItemAt(1).lodRangeFactor = v;
             OSD.viewers[0].viewer.forceRedraw();
         }
 
-        function onScale(v){
+        window.onScale = function(v){
             const viewer = OSD.viewers[0].viewer;
             const scale = viewer.world.getItemAt(1).lastDrawnTileScale;
             // const iScale = Math.round(scale)
@@ -300,7 +333,7 @@
             viewer.viewport.zoomTo(currentZoom/scale*Number(v),null,true);
         }
 
-        function onPerfect(){ // zoom to perfect pixels at current level
+        window.onPerfect = function(){ // zoom to perfect pixels at current level
             const viewer = OSD.viewers[0].viewer;
             const scale = viewer.world.getItemAt(1).lastDrawnTileScale;
             const iScale = Math.round(scale)
@@ -308,7 +341,7 @@
             viewer.viewport.zoomTo(currentZoom/scale*iScale,null,true);
         }
 
-        function onGCOselect(value){
+        window.onGCOselect = function(value){
             OSD.viewers[0].viewer.world.getItemAt(0).setOpacity(value==='source-over' ? 0 : 1);
             OSD.viewers[1].viewer.world.getItemAt(0).setOpacity(value==='source-over' ? 0 : 1);
             OSD.viewers[0].viewer.world.getItemAt(1).compositeOperation = value;
