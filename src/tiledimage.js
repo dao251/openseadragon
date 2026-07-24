@@ -2262,6 +2262,28 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
     }
 });
 
+/**
+ * Controls the level-of-detail range factor for the tiled image.
+ * The value is initialized from the tile source and normalized to a
+ * non-negative number, with a default of 1 when no valid value is provided.
+ * @member {Number} lodRangeFactor
+ * @memberof OpenSeadragon.TiledImage#
+ */
+Object.defineProperty($.TiledImage.prototype, "lodRangeFactor", {
+    get: function () {
+        if(this.__lodRangeFactor === undefined){
+            // call the setter because it validates the value (not an OOP Feng Shui though :-)
+            this.lodRangeFactor = this.source.lodRangeFactor;
+        }
+        return this.__lodRangeFactor;
+    },
+    set: function (value) {
+        const v = Number(value);
+        this.__lodRangeFactor = v < 0 ? 0 : v === 0 ? 0 : v || 1;  // must be >=0; returns 1 if NaN
+    },
+    enumerable: true,
+    configurable: false,
+});
 
 
 }( OpenSeadragon ));

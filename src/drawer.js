@@ -49,12 +49,12 @@ function getZoomLevel(tiledImage, zoom) {                       // 'zoom' means 
 
     // imagePixelsPerDevicePixel
     const imageScale = 1 / (imageZoom * $.pixelDensityRatio);
-    const lodRangeFactor = Math.max( Number(tiledImage.viewer.lodRangeFactor) || 1, 0);  // default is [1/sqrt2, sqrt2]
+    const lodRangeFactor = tiledImage.lodRangeFactor;
 
     // branch‑free interval definition
     const f = (lodRangeFactor + 1e-5) * 0.5 - 1;   // 1e-5 : heuristics to avoid jittering, need something more elegant
     const sMin = 2 ** f;
-    const sMax = 2 ** (f + 1);
+    const sMax = sMin * 2;
 
     // center of the interval (geometric mean)
     const sCenter = 2 ** (f + 0.5);
@@ -152,7 +152,7 @@ function getCompositeGeometry( tiledImage, level ) {
     return composite;
 }
 
-function getComposite( tiledImage, composite ) {
+function buildComposite( tiledImage, composite ) {
 
     const lyrComposite = composite.lyrComposite;
     const level = composite.level;
@@ -163,7 +163,9 @@ function getComposite( tiledImage, composite ) {
     // stich tiles on compositeCanvas
     const compositeCanvas = $.Utils.newOffscreenCanvas(lyrComposite.width, lyrComposite.height);
     const compositeContext = compositeCanvas.getContext('2d');
-    compositeContext.imageSmoothingEnabled = false;   // DON'T smooth, all coordinates are Integers, no scale, no rotation !!!!
+
+    // DON'T smooth, all coordinates are Integers, no scale, no rotation !!!!
+    compositeContext.imageSmoothingEnabled = false;
     compositeContext.translate( -lyrComposite.x, -lyrComposite.y );
 
     composite.context = compositeContext;
@@ -186,10 +188,6 @@ function getComposite( tiledImage, composite ) {
     //  returns the drawn tile or undefined if e.g. not loaded
     //  sx, sy... - source coords; dx, dy... - destination coords
     function drawTile(tile, ctx, sx, sy, sw, sh, dx, dy, dw, dh){
-        // if (tile && tile.exists && !tile.loaded && !tile.loading){
-        //     tile.tiledImage._loadTile( tile, $.now());
-        //     return undefined;
-        // }
         if (tile && tile.exists && tile.loaded){
             const tileImage = tile.getImage();
 
@@ -219,10 +217,7 @@ function getComposite( tiledImage, composite ) {
         let drawn;                  // return value : actually drawn tile
 
         // initial source rect (full tile from level)
-        let lsx = 0,
-            lsy = 0,
-            lsw = dw,
-            lsh = dh;
+        let [lsx, lsy, lsw, lsh] = [0, 0, dw, dh];
 
         while (!drawn) {
 
@@ -251,13 +246,11 @@ function getComposite( tiledImage, composite ) {
         return undefined;
     }
 
-
     function drawDebugInfo(tile, ctx, dx, dy, dw, dh){
         ctx.save(); // OK in debug mode
         {
             // styles for debugMode
-            ctx.strokeStyle = "rgba(255, 63, 255)";
-            ctx.fillStyle = "rgba(255, 63, 255)";
+            ctx.strokeStyle = ctx.fillStyle = "rgba(255, 63, 255)";
             ctx.font = "20px monospace";
             ctx.lineWidth = 1;
 
@@ -283,21 +276,17 @@ function getComposite( tiledImage, composite ) {
 
     iterateXY( tilComposite.width, tilComposite.height,
         (x, y) => {
-
             const tile = getTile(tiledImage, level, tilComposite.x + x, tilComposite.y + y );
-
             const drawn = drawTileCascade( tile, compositeContext,
                 tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
             );
-
             if ( !drawn ){
                 drawPlaceholder( tiledImage, compositeContext,
                     tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
                 );
                 return;
             }
-
-            // debug info MUST be drawn here !!!! Otherwise it may cause own bugs to debug...
+            // debug info must be drawn here, to avoid induced bugs
             if (tiledImage.debugMode){
                 drawDebugInfo( drawn, compositeContext,
                     tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
@@ -309,7 +298,7 @@ function getComposite( tiledImage, composite ) {
 }
 
 /**
- * @class OpenSeadragon.CanvasDrawer
+ * @class OpenSeadragon.Drawer
  * @extends OpenSeadragon.DrawerBase
  * @classdesc Default implementation of CanvasDrawer for an {@link OpenSeadragon.Viewer}.
  * @param {Object} options - Options for this Drawer.
@@ -320,13 +309,11 @@ function getComposite( tiledImage, composite ) {
  */
 
 $.Drawer = class extends OpenSeadragon.DrawerBase{
-
     __snapToDevicePixels;   // #private
 
     constructor(options){
         super(options);
         this.context = this.canvas.getContext( '2d' );
-
         // this.snapToDevicePixels: default -> true
         this.__snapToDevicePixels = !!this.viewer.snapToDevicePixels;
 
@@ -347,10 +334,7 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
     }
 
     set snapToDevicePixels(force){
-        if(this.__snapToDevicePixels === !!force){
-            return;
-        }
-
+        if(this.__snapToDevicePixels === !!force) return;                       // eslint-disable-line curly
         this.__snapToDevicePixels = !!force;
         this.viewer.forceRedraw();
     }
@@ -412,36 +396,34 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
 
         const canvas = this.canvas;
         const container = this.viewer.container;
+        const ctx = this.context;
 
-        // 1. Get rendered CSS box (what layout actually produced)
+        // Get rendered CSS box (what layout actually produced)
         const rect = container.getBoundingClientRect();
 
-        // 2. Compute DPR-aligned CSS width/height
+        // Compute DPR-aligned CSS width/height
         //    This ensures cssWidth * dpr and cssHeight * dpr are integers.
         const devWidth  = Math.round(rect.width * dpr);
         const devHeight = Math.round(rect.height * dpr);
 
         // clears the canvas
-        canvas.width = devWidth;
-        canvas.height = devHeight;
-
-        // 3. Apply CSS size explicitly (lock it)
-        canvas.style.width  = devWidth / dpr + "px";
-        canvas.style.height = devHeight / dpr + "px";
+        if ( canvas.width !== devWidth || canvas.height !== devHeight){
+            canvas.width = devWidth;
+            canvas.height = devHeight;
+            // Apply CSS size explicitly (lock it)
+            canvas.style.width  = devWidth / dpr + "px";
+            canvas.style.height = devHeight / dpr + "px";
+        }else{
+            // setting (width, height) takes tooo long
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, devWidth, devHeight);
+        }
 
         // align the canvas to device pixel boundaries
         if(this.__snapToDevicePixels){
             snapElementToDevicePixels(canvas);
         } else {
             canvas.style.transform = "";
-        }
-
-        const ctx = this.context;
-
-        // flip the viewport //DAO251: why here ?
-        if( this.viewer.viewport.getFlip() ){
-            ctx.scale(-1, 1);
-            ctx.translate(-canvas.width, 0);
         }
 
         // draw tiledImages onto this.context
@@ -464,16 +446,14 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         const currentLevel =  getZoomLevel( tiledImage );
 
         const composite = getCompositeGeometry(tiledImage, currentLevel);
-        if(!composite){
-            return; // nothing to draw
-        }
+        if(!composite) return;                                                  // eslint-disable-line curly
 
         // expand cache size if necessary (make cache size at least twice current scren )
         this.__tileCount += composite.tilComposite.width * composite.tilComposite.height;
         tiledImage._tileCache.expand( this.__tileCount * 2 );
 
         // draw tiles on the composite canvas
-        getComposite(tiledImage, composite);
+        buildComposite(tiledImage, composite);
 
         const levelScale = composite.levelScale;
         const lyrImgWidth = composite.imgImage.width / levelScale;
@@ -519,16 +499,57 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         let sw = lyrDrawArea.width;
         let sh = lyrDrawArea.height;
 
+        // //DAO251: tried better adjustment to device pixels, still did not work as expected
+        // //DAO251: left it here for a while though
+        // function snappedTransform(a, b, c, d, e, f, sx, sy, sw, sh) {
+        //     // Apply original transform to a point
+        //     const apply = (x, y) => ({
+        //         x: a * x + c * y + e,
+        //         y: b * x + d * y + f
+        //     });
+
+        //     // Transform all four corners
+        //     const P0 = apply(sx, sy);
+        //     const P1 = apply(sx + sw, sy);
+        //     const P2 = apply(sx, sy + sh);
+
+        //     // Snap to device pixels
+        //     const S0 = { x: Math.round(P0.x), y: Math.round(P0.y) };
+        //     const S1 = { x: Math.round(P1.x), y: Math.round(P1.y) };
+        //     const S2 = { x: Math.round(P2.x), y: Math.round(P2.y) };
+
+        //     // Rebuild affine transform from snapped corners
+        //     const a2 = (S1.x - S0.x) / sw;
+        //     const b2 = (S1.y - S0.y) / sw;
+        //     const c2 = (S2.x - S0.x) / sh;
+        //     const d2 = (S2.y - S0.y) / sh;
+
+        //     const e2 = S0.x - a2 * sx - c2 * sy;
+        //     const f2 = S0.y - b2 * sx - d2 * sy;
+
+        //     return { a: a2, b: b2, c: c2, d: d2, e: e2, f: f2 };
+        // }
+
+        // ({ a, b, c, d, e, f } = snappedTransform(a, b, c, d, e, f, sx, sy, sw, sh));
+
         const ctx = this.context;
 
-        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+        // flip the viewport
+        if( this.viewer.viewport.getFlip() ){
+            ctx.scale(-1, 1);
+            ctx.translate(-ctx.canvas.width, 0);
+        }
+
+        // ctx.save();
             ctx.transform(a, b, c, d, e, f);
             ctx.drawImage(
                 composite.context.canvas,
                 sx, sy, sw, sh,
                 sx, sy, sw, sh,
             );
-        ctx.restore();
+        // ctx.restore();
 
         //TODO: where to move these ??? or keep for futher optimizations ???
         tiledImage.lastDrawnLevel = currentLevel;
