@@ -1425,9 +1425,12 @@ $.extend($.TiledImage.prototype, $.EventSource.prototype, /** @lends OpenSeadrag
 
             // Stop the loop if lower-res tiles would all be covered by
             // already drawn tiles
-            if (this._providesCoverage(this.coverage, level)) {
-                break;
-            }
+
+            //DAO251: BUG !!! lower res tiles still might be needed e.g. for blending !!!
+
+            // if (this._providesCoverage(this.coverage, level)) {
+            //     break;
+            // }
         }
 
 
@@ -2284,6 +2287,215 @@ Object.defineProperty($.TiledImage.prototype, "lodRangeFactor", {
     enumerable: true,
     configurable: false,
 });
+
+$.TiledImage.prototype.getZoomLevel =  function(zoom) {            // 'zoom' means viewport zoom
+    zoom = zoom || this.viewport.getZoom(true);           // defaults to current zoom
+    const imageZoom = this.viewportToImageZoom(zoom);
+
+    const maxLevel = this.source.maxLevel;
+    const minLevel = this.source.minLevel;
+
+    // imagePixelsPerDevicePixel
+    const imageScale = 1 / (imageZoom * $.pixelDensityRatio);
+    const lodRangeFactor = this.lodRangeFactor;
+
+    // branch‑free interval definition
+    const f = (lodRangeFactor + 1e-5) * 0.5 - 1;   // 1e-5 : heuristics to avoid jittering, need something more elegant
+    const sMin = 2 ** f;
+    const sMax = sMin * 2;
+
+    // center of the interval (geometric mean)
+    const sCenter = 2 ** (f + 0.5);
+
+    // apply lodRangeFactor BEFORE idealLevel calculation
+    const effectiveScale = imageScale * sCenter;
+
+    // continuous ideal level
+    const idealLevel = maxLevel - Math.log2(effectiveScale);
+
+    // downsample factor of the ideal level
+    const downsample = 2 ** (maxLevel - idealLevel);
+
+    // hysteresis using the SAME interval
+    let level;
+    if (effectiveScale < downsample * sMin) {
+        level = Math.floor(idealLevel);
+    } else if (effectiveScale > downsample * sMax) {
+        level = Math.ceil(idealLevel);
+    } else {
+        level = Math.round(idealLevel);
+    }
+
+    return Math.max(minLevel, Math.min(maxLevel, level));
+};
+
+$.TiledImage.prototype.getTileScale = function(level){
+    const zoom = this.viewport.getZoom(true);
+    const imageZoom = this.viewportToImageZoom(zoom) * $.pixelDensityRatio;
+    const tileScale = imageZoom * 2 ** (this.source.maxLevel - level);
+    return tileScale;
+};
+
+//TODO: Make Composite a class
+
+$.TiledImage.prototype.getTile = function(level, x, y){
+    return this._getTile(x, y, level, Date.now(), this.source.getNumTiles(level));  //TODO: get rid of this code smell...
+};
+
+$.TiledImage.prototype.buildComposite = function( composite ) {
+
+    const lyrComposite = composite.lyrComposite;
+    const level = composite.level;
+    const tilComposite = composite.tilComposite;
+    const tileWidth = composite.tileWidth;
+    const tileHeight = composite.tileHeight;
+
+    // create CompositeCanvas
+    if ( !this.__compositeContexts ){
+        this.__compositeContexts = [];
+    }
+
+    if ( !this.__compositeContexts[level] ){
+        const canvas = $.Utils.newOffscreenCanvas();
+        this.__compositeContexts[level] = canvas.getContext('2d');
+    }
+
+
+    // stich tiles on compositeCanvas
+    const compositeContext = this.__compositeContexts[level];
+    $.Utils.clearContext(compositeContext, lyrComposite.width, lyrComposite.height);
+
+    // DON'T smooth, all coordinates are Integers, no scale, no rotation !!!!
+    compositeContext.imageSmoothingEnabled = false;
+    compositeContext.translate( -lyrComposite.x, -lyrComposite.y );
+
+    composite.context = compositeContext;
+
+    const drawPlaceholder = ( ctx, dx, dy, dw, dh) => {
+        const fillStyle = ( typeof this.placeholderFillStyle === "function" ?
+                    this.placeholderFillStyle(this, ctx) :
+                    this.placeholderFillStyle
+                );
+        if (fillStyle) {
+            ctx.save();
+            ctx.fillStyle = fillStyle;
+            ctx.fillRect(dx, dy, dw, dh);
+            ctx.restore();
+        }
+    };
+
+    // TODO: make it a separate method after moving to TiledImage class
+    //  OR: make it a method of the Tile class
+    //  returns the drawn tile or undefined if e.g. not loaded
+    //  sx, sy... - source coords; dx, dy... - destination coords
+    const drawTile = (tile, ctx, sx, sy, sw, sh, dx, dy, dw, dh) => {
+        if (tile && tile.exists && tile.loaded){
+            const tileImage = tile.getImage();
+
+            // trim off tileOverlap here (if not trimmed off at ImageLoader !!!)
+            //DAO251: use the __trimOverlapsOnLoad OSD option while refactoring
+            //TODO: remove it when implemented at ImageLoader
+            if( !$.__trimOverlapsOnLoad ){
+                const tileOverlap =  tile.tiledImage.source.tileOverlap;
+                if ( tileOverlap ){
+                    sx += tileOverlap * Math.sign(tile.x);
+                    sy += tileOverlap * Math.sign(tile.y);
+                }
+            }
+
+            ctx.drawImage(tileImage, sx, sy, sw, sh, dx, dy, dw, dh);
+            return tile;
+        }
+        return undefined;
+    };
+
+    const drawTileCascade = ( tile, ctx, dx, dy, dw, dh) => {
+        const { level, x, y } = tile;
+        const minLevel = tile.tiledImage.source.minLevel;
+
+        let tileLevel = level;      // level of the tile to draw
+        let drawn;                  // return value : actually drawn tile
+
+        // initial source rect (full tile from level)
+        let [lsx, lsy, lsw, lsh] = [0, 0, dw, dh];
+
+        while (!drawn) {
+
+            // Try drawing the tile from tileLevel
+            drawn = drawTile(tile, ctx, lsx, lsy, lsw, lsh, dx, dy, dw, dh);
+            if(drawn) return drawn;                                             // eslint-disable-line curly
+
+            // fallback
+            tileLevel--;
+            if (tileLevel < minLevel) return undefined;                         // eslint-disable-line curly
+
+            // Compute next fallback tile
+            const shift = level - tileLevel;
+            tile = this.getTile( tileLevel, x >> shift, y >> shift );
+
+            // Compute fallback source rect
+            const scale = 1 << shift;
+            const mask  = scale - 1;
+
+            lsw = dw / scale;
+            lsh = dh / scale;
+            lsx = (x & mask) * lsw;
+            lsy = (y & mask) * lsh;
+        }
+
+        return undefined;
+    };
+
+    const drawDebugInfo = (tile, ctx, dx, dy, dw, dh) => {
+        ctx.save(); // OK in debug mode
+        {
+            // styles for debugMode
+            ctx.strokeStyle = ctx.fillStyle = "rgba(255, 63, 255)";
+            ctx.font = "20px monospace";
+            ctx.lineWidth = 1;
+
+            ctx.translate(dx, dy);
+            ctx.strokeRect( 0.5, 0.5, dw - 1, dh - 1);
+            if (this.flipped){
+                ctx.textAlign = "right";
+                ctx.scale(-1, 1);
+            }
+            ctx.fillText(`  ${tile.level}:${tile.x}:${tile.y}  `, 0, 25);
+        }
+        ctx.restore();
+    };
+
+    // iterateXY wrapper for the XY loop. Just in case we decide to change the order later...
+    const iterateXY = (W, H, visit) => {
+        for( let x = 0; x < W; x++ ){
+            for( let y = 0; y < H; y++ ){
+                visit(x, y);
+            }
+        }
+    };
+
+    iterateXY( tilComposite.width, tilComposite.height,
+        (x, y) => {
+            const tile = this.getTile( level, tilComposite.x + x, tilComposite.y + y );
+            const drawn = drawTileCascade( tile, compositeContext,
+                tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
+            );
+            if ( !drawn ){
+                drawPlaceholder( compositeContext,
+                    tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
+                );
+                return;
+            }
+            // debug info must be drawn here, to avoid induced bugs
+            if (this.debugMode){
+                drawDebugInfo( drawn, compositeContext,
+                    tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
+                );
+            }
+        }
+    );
+
+};
 
 
 }( OpenSeadragon ));
