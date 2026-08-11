@@ -365,21 +365,15 @@ $.Utils = class {
     }
 
     /**
-     * Clears a canvas context efficiently by resizing the canvas when needed
-     * or resetting the transform and clearing the existing buffer otherwise.
+     * Rounds a value up to the nearest multiple of a quantum.
      *
-     * @param {CanvasRenderingContext2D} ctx - The drawing context to clear.
-     * @param {number} w - The target width in pixels.
-     * @param {number} h - The target height in pixels.
+     * @param {number} value - The value to align upward.
+     * @param {number} quantum - The alignment increment.
+     * @returns {number} The nearest value greater than or equal to `value`
+     *  that is divisible by `quantum`.
      */
-    static clearContext(ctx, w, h){
-        if ( ctx.canvas.width !== w || ctx.canvas.height !== h){
-            ctx.canvas.width = w;
-            ctx.canvas.height = h;
-        }else{
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, w, h);
-        }
+    static alignUp( value, quantum ){
+        return Math.ceil(value / quantum) * quantum;
     }
 
 };

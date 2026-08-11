@@ -58,6 +58,7 @@
     */
 
 $.WebGLDrawer = class extends OpenSeadragon.Drawer{
+
     constructor(options){
         super(options);
         $.console.warn(" 'webgl' drawer not implemented, using default drawer (Canvas API)" );

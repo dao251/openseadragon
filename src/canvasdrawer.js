@@ -35,6 +35,55 @@
 (function( $ ){
 
     const OpenSeadragon = $; // (re)alias back to OpenSeadragon for JSDoc
+
+    class CanvasTileBuffer {
+        __size; // #private member
+
+        get size(){
+            return this.__size;
+        }
+
+        constructor( size ){
+            this.__size = size;
+            this.context = $.Utils.newOffscreenCanvas(size, size).getContext('2d');
+        }
+
+        destroy(){
+            this.size = 0;
+            delete this.context;
+        }
+
+        get valid(){
+            return true;
+        }
+
+        clear(){
+            const ctx = this.context;
+
+            // DON'T smooth, all coordinates are Integers, no scale, no rotation !!!!
+            // must be here as composite clear may reset to default
+            ctx.imageSmoothingEnabled = false;
+        }
+
+        clearRect(dx, dy, dw, dh){
+            this.context.clearRect( dx, dy, dw, dh );
+        }
+
+        fillRect(dx, dy, dw, dh, fillStyle){
+            const ctx = this.context;
+            if (fillStyle) {
+                ctx.fillStyle = fillStyle;
+                ctx.clearRect(dx, dy, dw, dh);  // in case something(?) left on the canvas(???) AND fillStyle has transparency
+                ctx.fillRect(dx, dy, dw, dh);
+            }
+        }
+
+        drawImage( image, sx, sy, sw, sh, dx, dy, dw, dh ){
+            this.context.drawImage( image, sx, sy, sw, sh, dx, dy, dw, dh );
+        }
+
+    }
+
 /**
  * @class OpenSeadragon.CanvasDrawer
  * @extends OpenSeadragon.DrawerBase
@@ -47,9 +96,36 @@
  */
 
 $.CanvasDrawer = class extends OpenSeadragon.Drawer{
+
     constructor(options){
         super(options);
         this.context = this.canvas.getContext( '2d' );
+    }
+
+    clear( width, height ){
+        this.canvas.width = width;
+        this.canvas.height = height;
+    }
+
+    newTileBuffer(size){
+        return new CanvasTileBuffer(size);
+    }
+
+    drawTileBuffer( buffer, affine, srcRect ){
+        const [a, b, c, d, e, f] = affine;
+        const [sx, sy, sw, sh] =  srcRect;
+        const ctx = this.context;
+
+        ctx.imageSmoothingEnabled = this._imageSmoothingEnabled;
+        ctx.globalCompositeOperation = this.__currentCompositeOperation;
+        ctx.globalAlpha = this.__currentOpacity;
+
+        ctx.setTransform(a, b, c, d, e, f);
+        ctx.drawImage(
+            buffer.context.canvas,
+            sx, sy, sw, sh,
+            sx, sy, sw, sh,
+        );
     }
 
     /**
@@ -60,5 +136,4 @@ $.CanvasDrawer = class extends OpenSeadragon.Drawer{
         return 'canvas';
     }
 };
-
 }( OpenSeadragon ));

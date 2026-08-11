@@ -54,15 +54,20 @@
                 <div> </div>
                 <div style="border-bottom:1px solid #000;"></div>
                 <div> </div>
+                <div>Drawer</div>
+                    <div><input type="checkbox" onchange="smooth(this.checked)" checked>Smooth</div>
+                    <div>minPixelRatio: <span id="mpr">0.5</span></div>
+                    <input id="mprr" type="range" min="0.5" max="4" step="0.5" value="0.5" oninput="setMinPixRatio(this.value)">
+                <div style="border-bottom:1px solid #000;"></div>
+                <div> </div>
                 <div>Image</div>
-                <div><input type="checkbox" onchange="rotate( this.checked * 30 )">Rotate</div>
-                <div><input type="checkbox" onchange="flip(this.checked)">Flip</div>
-                <div><input type="checkbox" onchange="clip(this.checked)">Clip</div>
-                <div><input type="checkbox" onchange="opacity(this.checked)">Opacity</div>
-                <!-- <div>GCO: <select onchange="onGCOselect(this.value)" id="gco_select"></select></div> -->
-                <!-- <div> </div> -->
-                <div><input type="checkbox" onchange="smooth(this.checked)" checked>Smooth</div>
-                <!-- <div><input type="checkbox" onchange="snapToDevice(this.checked)" checked>Snap to Device Px</div> -->
+                    <div><input type="checkbox" onchange="rotate( this.checked * 30 )">Rotate</div>
+                    <div><input type="checkbox" onchange="flip(this.checked)">Flip</div>
+                    <div><input type="checkbox" onchange="clip(this.checked)">Clip</div>
+                    <div><input type="checkbox" onchange="opacity(this.checked)">Opacity</div>
+                    <!-- <div>GCO: <select onchange="onGCOselect(this.value)" id="gco_select"></select></div> -->
+                    <!-- <div> </div> -->
+                    <!-- <div><input type="checkbox" onchange="snapToDevice(this.checked)" checked>Snap to Device Px</div> -->
             </div>
 
             <div id="perf" style="width: 200px; display:flex; flex-direction:column; gap:2px;">
@@ -90,6 +95,14 @@
                 <input id="lod" type="range" min="0" max="4" step="0.1" value="1" oninput="setRangeFactor(this.value)">
                 <!-- <div>&lt;-<input type="checkbox" onchange="snapToDevice( this.checked )" checked>Snap To DevPx</div> -->
             </div>
+            <!-- <details open>
+                <summary>WebGL filters:</summary>
+                <div>1</div>
+           </details>
+            <details>
+                <summary>Performance:</summary>
+                <div>2</div>
+           </details> -->
         </form>
     </div>
         <div>
@@ -99,6 +112,12 @@
     <!-- <div>
         <pre id="out" style="height:400px; width:1100px; overflow-y:auto;"></pre>
     </div> -->
+    <script>
+        for(const d of document.querySelectorAll("details"))
+        d.ontoggle = () => d.open &&
+            document.querySelectorAll("details").forEach(o => o!==d && o.open && o.removeAttribute("open"));
+    </script>
+
 
     <script id="code" type="module">
 
@@ -106,7 +125,11 @@
 
         const images = [
             {
-                tileSource: "../../test/data/monalisa.dzi",
+                tileSource: {
+                    tileSource: "../../test/data/monalisa.dzi",
+                    loadTilesWithAjax: true,
+                    useOwnCache: true,
+                },
                 text: "DZI Mona Lisa : 80MP (7479x11146 px) JPEG tiled into 256x256 (PNG) tiles",
                 clip: [ 2000, 2000, 2000, 4000 ],
                 viewerOptions: {fetchOptions:{}},
@@ -122,13 +145,16 @@
             {
                 text: "IIP TileSource: Huge WSI slide (256x256 JPEG tiles with no overlap)",
                 tileSource: {
-                    iipsrv: "https://merovingio.c2rmf.cnrs.fr/fcgi-bin/iipsrv.fcgi",
-                    image:  "77917.ome.tif",
-                    format: "jpg",      // jpeg creates tiling artifacts on the server, need overlaps !!!
-                    transform:  {
-                        contrast: 1.5,
-                        twist: "[0,0,1;0,1,0;0.9,0,0.1]"
+                    tileSource: {
+                        iipsrv: "https://merovingio.c2rmf.cnrs.fr/fcgi-bin/iipsrv.fcgi",
+                        image:  "77917.ome.tif",
+                        format: "jpg",      // jpeg creates tiling artifacts on the server, need overlaps !!!
+                        transform:  {
+                            contrast: 1.5,
+                            twist: "[0,0,1;0,1,0;0.9,0,0.1]"
+                        },
                     },
+                    loadTilesWithAjax: true,
                 },
                 clip: [ 20000, 15000, 10000, 10000],
             },
@@ -148,7 +174,10 @@
                 nonCORS: true,
             },
             {
-                tileSource: "https://openseadragon.github.io/example-images/duomo/duomo.dzi",
+                tileSource: {
+                    tileSource: "https://openseadragon.github.io/example-images/duomo/duomo.dzi",
+                    loadTilesWithAjax: true,
+                },
                 text: "DZI Duomo : (13920x10200 px) image ( 254x254 JPEG tiles with 1px overlap)",
                 clip: [ 1024, 768, 3072, 4096 ],
             },
@@ -159,17 +188,19 @@
                 ],
                 text: "Stack",
             },
-            // {
-            //     tileSource: "../../test/data/testpattern.dzi",
-            //     text: "Rainbow grid",
-            //     // clip: [ 2000, 2000, 2000, 4000 ],
-            // },
+            {
+                // demo:"Simple Image: 1000x1000 PNG, tiled into 131x251 tiles",
+                // tileSource: { type:"image", url:"../../test/data/BBlue.png", tileWidth: 131, tileHeight: 251 },
+                // demoClip: new OpenSeadragon.Rect( 200, 200, 500, 500),
+                text: "Simple Image: Mona Lisa",
+                tileSource: { type:"image", url:"../../test/data/MonaLisa.jpg", tileWidth: 251, tileHeight: 367 },
+            },
 
 
         ];
         const viewers = [
                 {   version: "dao251 'canvas'",
-                    url: "../../build/openseadragon/openseadragon.js",
+                    url: "../../build/openseadragon/openseadragon.min.js",
                     viewerOptions:{
                         drawer:'canvas',
                         maxImageCacheCount: 20,
@@ -178,6 +209,16 @@
                         fetchOptions:{},
                     }
                 },
+                // {   version: "dao251 'webgl'",
+                //     url: "../../build/openseadragon/openseadragon.min.js",
+                //     viewerOptions:{
+                //         drawer:'webgl',
+                //         maxImageCacheCount: 20,
+                //         snapToDevicePixels: true,
+                //         lodRangeFactor: 1,
+                //         fetchOptions:{},
+                //     }
+                // },
                 {   version: "OSD 6.1.0 'canvas'",
                     url: "../../.ver/OSD.6.1.0/openseadragon.js",
                     viewerOptions: { drawer:'canvas' },
@@ -219,7 +260,7 @@
                 minZoomLevel: 0.01,
                 maxZoomPixelRatio: 4.00,
 
-                fetchOptions: {},
+                // minPixelRatio: 1 / devicePixelRatio,
 
             },
         };
@@ -246,8 +287,15 @@
             let m = Number(document.getElementById("viewer0").value);
             let c = Number(document.getElementById("viewer1").value);
             if( mainViewer === compareTo && m !== mainViewer ) c = m ;
-            if(m > c) [m, c] = [c, m];
-            location.search = `?i=${imageSelector.value}&v=${m}&d=${c}`
+            if( m > c ) [m, c] = [c, m];
+            let imgPosition = '';
+            // if( Number(imageSelector.value) === demoImage ){    // didn't change the Image
+            //     const zoom = OSD.viewers[0].viewer.viewport.getZoom();
+            //     const cent = OSD.viewers[0].viewer.viewport.getCenter();
+            //     const rota = OSD.viewers[0].viewer.viewport.getRotation();
+            //     imgPosition = `&z=${zoom}&cx=${cent.x}&cy=${cent.y}&r=${rota}`
+            // }
+            location.search = `?i=${imageSelector.value}&v=${m}&d=${c}${imgPosition}`
         }
 
         OSD.viewerOptions.tileSources = images[imageSelector.value].tileSource;
@@ -269,23 +317,24 @@
                     OSD.viewers[0].viewer.world.update.perf.windowCps.toFixed(0);
 
             }catch(e){}
-
-            try{
-                const tiledImage = OSD.viewers[0].viewer.world.getItemAt(0);
-                const scale = tiledImage.lastDrawnTileScale;
-                const level = tiledImage.lastDrawnLevel;
-                document.getElementById("scale").value = scale.toFixed(17);
-                document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
-                document.getElementById("level").textContent = level;
-                const lodFactor = OSD.viewers[0].viewer.world.getItemAt(0).lodRangeFactor;
-                document.getElementById('lod').value = lodFactor;
-                document.getElementById('lrf').textContent = lodFactor.toFixed(1);
-            }catch(e){}
-        }, 250);  // update counters 4 times per second
+        }, 250);  // update performance counters 4 times per second
 
 
-        if( mainViewer !== 0){
+        if( Number(mainViewer) > 1 ){
             document.getElementById("dao251").style = "display:none;";
+        } else {
+            OSD.animationHandler = (event) => {
+                    try{
+                        const tiledImage = OSD.viewers[0].viewer.world.getItemAt(0);
+                        const scale = tiledImage.lastDrawnTileScale;
+                        const level = tiledImage.lastDrawnLevel;
+                        document.getElementById("scale").value = scale.toFixed(17);
+                        document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
+                        document.getElementById("level").textContent = level;
+                        document.getElementById("lod").value = tiledImage.lodRangeFactor;
+                        document.getElementById("lrf").textContent = Number(tiledImage.lodRangeFactor).toFixed(1);
+                    }catch(e){}
+                }
         }
 
         if( mainViewer == compareTo ) {
@@ -346,7 +395,16 @@
                 OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).setClip(null) )
         }
         window.rotate  = (v) => OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).setRotation?.(v) )
-        window.opacity = (v) => OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).setOpacity(v?.5:1) )
+        // window.opacity = (v) => OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).setOpacity(v?.5:1) )
+
+        window.opacity = v =>
+        OSD.viewers.forEach(o =>
+            [...Array(o.viewer.world.getItemCount()).keys()]
+            .forEach(i => o.viewer.world.getItemAt(i).setOpacity(v?.5 : 1))
+        );
+
+
+
         window.smooth  = (v) => OSD.viewers.forEach( o => o.viewer.drawer.setImageSmoothingEnabled?.(v) )
 
         const unwraps = [];
@@ -365,15 +423,22 @@
         window.setRangeFactor = function(v) {
             document.getElementById('lrf').textContent = Number(v).toFixed(1)
             OSD.viewers[0].viewer.world.getItemAt(0).lodRangeFactor = v;
-            OSD.viewers[0].viewer.forceRedraw();
+            // OSD.viewers[0].viewer.forceRedraw();
+        }
+
+        window.setMinPixRatio = function(v) {
+            document.getElementById('mpr').textContent = Number(v).toFixed(2)
+            OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).minPixelRatio = v )
+            OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).update() )
         }
 
         window.onScale = function(v){
             const viewer = OSD.viewers[0].viewer;
-            const scale = viewer.world.getItemAt(0).lastDrawnTileScale;
-            // const iScale = Math.round(scale)
+            // const scale = Math.max(Math.min(0, (Number(v))), 20) || 1;
+            const scale = Number(v);
             const currentZoom = viewer.viewport.getZoom();
-            viewer.viewport.zoomTo(currentZoom/scale*Number(v),null,true);
+            // viewer.viewport.zoomTo(currentZoom*scale,null,true);
+            viewer.viewport.zoomTo(currentZoom*scale);
         }
 
         window.onPerfect = function(){ // zoom to perfect pixels at current level
@@ -381,7 +446,8 @@
             const scale = viewer.world.getItemAt(0).lastDrawnTileScale;
             const iScale = Math.round(scale)
             const currentZoom = viewer.viewport.getZoom();
-            viewer.viewport.zoomTo(currentZoom/scale*iScale,null,true);
+            // viewer.viewport.zoomTo(currentZoom/scale*iScale,null,true);
+            viewer.viewport.zoomTo(currentZoom/scale*iScale);
         }
 
         // window.onGCOselect = function(value){
