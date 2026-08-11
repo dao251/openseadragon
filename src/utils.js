@@ -377,8 +377,9 @@ $.Utils = class {
             ctx.canvas.width = w;
             ctx.canvas.height = h;
         }else{
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, w, h);
+            ctx.canvas.width = w;
+            // ctx.setTransform(1, 0, 0, 1, 0, 0);
+            // ctx.clearRect(0, 0, w, h);
         }
     }
 
