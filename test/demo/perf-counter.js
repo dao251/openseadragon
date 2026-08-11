@@ -1,16 +1,24 @@
 export function makePerfCounter(windowCalls = 600) {
-    const window = new Array(windowCalls);
-    let wIndex = 0;
-    let wCount = 0;
-    let wSum = 0;
+    // ring buffers
+    const dtWindow = new Array(windowCalls);     // durations
+    const timeWindow = new Array(windowCalls);   // timestamps
 
+    let wIndex = 0;      // ring buffer index
+    let wCount = 0;      // number of samples currently in window
+    let wSum = 0;        // sum of dt values (ms)
+
+    // global stats
     let count = 0;
     let total = 0;
     let min = Infinity;
     let max = -Infinity;
     let sumSq = 0;
 
+    const startTime = performance.now();
+
     function record(dt) {
+        const now = performance.now();
+
         // global stats
         count++;
         total += dt;
@@ -18,15 +26,21 @@ export function makePerfCounter(windowCalls = 600) {
         max = dt > max ? dt : max;
         sumSq += dt * dt;
 
-        // moving window (fixed-size ring buffer)
+        // moving window
         if (wCount < windowCalls) {
-            window[wCount++] = dt;
+            dtWindow[wCount] = dt;
+            timeWindow[wCount] = now;
             wSum += dt;
+            wCount++;
         } else {
-            const old = window[wIndex];
-            wSum -= old;
-            window[wIndex] = dt;
+            // overwrite oldest
+            const oldDt = dtWindow[wIndex];
+
+            wSum -= oldDt;
+            dtWindow[wIndex] = dt;
+            timeWindow[wIndex] = now;
             wSum += dt;
+
             wIndex = (wIndex + 1) % windowCalls;
         }
     }
@@ -47,12 +61,35 @@ export function makePerfCounter(windowCalls = 600) {
         },
         get stddev() { return Math.sqrt(this.variance) },
 
-        // moving window stats (last N calls)
+        // moving window stats
         get windowCount() { return wCount },
         get windowTotal() { return wSum },
-        get windowAvg() { return wCount ? wSum / wCount : 0 }
+        get windowAvg() { return wCount ? wSum / wCount : 0 },
+
+        // global calls per second
+        get cps() {
+            const elapsedMs = performance.now() - startTime;
+            return elapsedMs > 0 ? count / (elapsedMs / 1000) : 0;
+        },
+
+        // moving calls per second (correct)
+        get windowCps() {
+            if (wCount < 2) return 0;
+
+            // oldest sample index
+            const firstIndex = wIndex;
+            // newest sample index
+            const lastIndex = (wIndex + wCount - 1) % windowCalls;
+
+            const firstTime = timeWindow[firstIndex];
+            const lastTime = timeWindow[lastIndex];
+
+            const elapsedMs = lastTime - firstTime;
+            return elapsedMs > 0 ? wCount / (elapsedMs / 1000) : 0;
+        }
     };
 }
+
 
 export function wrapMethodWithPerf(obj, methodName, windowCalls = 600) {
     const original = obj[methodName];

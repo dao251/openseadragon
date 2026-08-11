@@ -7,10 +7,12 @@
 /**
  * TileCache class provides a simple caching mechanism for tiles.
  * It uses a Map to store tiles, preserving insertion order for LRU/FIFO behavior.
+ *  //TODO: consider switching to a linked-list LRU if TileCashe.use() performance issues occure.
  */
 $.TileCache = class {
     __limit; // Maximum number of tiles the cache can hold.
     __map;   // Internal Map to store cache entries.
+    __lastKey;
 
     /**
      * Constructor initializes the cache with a maximum size.
@@ -20,6 +22,7 @@ $.TileCache = class {
     constructor(options = {maxImageCacheCount: 200} ) {
         this.__limit = options.maxImageCacheCount;
         this.__map = new Map();                          // Preserves insertion order for LRU/FIFO.
+        this.__lastKey = undefined;
     }
 
     /**
@@ -54,13 +57,25 @@ $.TileCache = class {
      * @returns {*} The cached tile, or undefined if not found.
      */
     use(key) {
+        let current = key;
         const map = this.__map;
-        const value = map.get(key);
-        map.delete(key);                                // Remove the old position.
-        if (value !== undefined) {
-            map.set(key, value);                        // Reinsert to mark as recently used.
+
+        while (current) {
+            const value = map.get(current);
+            if (!value) break;                                                      // eslint-disable-line curly
+
+            if (this.__lastKey !== current) {
+                map.delete(current);
+                map.set(current, value);
+                this.__lastKey = current;
+            }
+
+            const next = value.tile?.lrCacheKey;   // move lower-resolution tile entries too !!!
+            if (next === current) break;                                            // eslint-disable-line curly
+            current = next;
         }
-        return value;
+
+        return map.get(key);
     }
 
     /**
@@ -96,11 +111,13 @@ $.TileCache = class {
      * Removes all tiles associated with a specific tiledImage from the cache.
      * @param {Object} tiledImage - The tiled image whose tiles should be cleared.
      */
-    clearTilesFor( tiledImage ){
+    clearTilesFor(tiledImage) {
         const tileSourceId = tiledImage.source.hash;
-        for (const [key] of this.__map) {
-            if ( key.split("/")[0] === tileSourceId){
-                this.__map.delete(key);
+        const map = this.__map;
+
+        for (const key of map.keys()) {
+            if (key.startsWith(tileSourceId + "/")) {
+                map.delete(key);
             }
         }
     }

@@ -155,6 +155,11 @@ $.Tile = function(tiledImage, level, x, y, bounds, exists, url, context2D, loadW
      * @memberof OpenSeadragon.Tile#
      */
     this.cacheKey = $.TileCache.getTileCacheKey(tiledImage, level, x, y);   // use TileCache static method (isolation)
+
+    if(level > tiledImage.source.minLevel){
+        this.lrCacheKey = $.TileCache.getTileCacheKey(tiledImage, level - 1, x >> 1, y >> 1);
+    }
+
     /**
      * Is this tile loading?
      * @member {Boolean} loading
@@ -323,7 +328,7 @@ $.Tile.prototype = {
      * @returns {CanvasRenderingContext2D}
      */
     getCanvasContext: function() {
-        return this.tiledImage._tileCache.use(this.cacheKey);
+        return this.tiledImage._tileCache.use(this.cacheKey).context;
     },
 
     /**
@@ -338,9 +343,9 @@ $.Tile.prototype = {
     /**
      * Sets (and caches) the canvas element for the tile
      */
-    setImage: function( canvas ){                    //DAO251:  //TODO: rename to setCanvas ??? think of contextAttributes ????
-        const value = (canvas === undefined ? undefined : canvas.getContext('2d') );
-        this.tiledImage._tileCache.set( this.cacheKey, value );
+    setImage: function( canvas ){
+        const context = (canvas === undefined ? undefined : canvas.getContext('2d') );
+        this.tiledImage._tileCache.set( this.cacheKey, {tile: this, context: context} );
     },
 
     //DAO251: end of TileCache usage
@@ -349,9 +354,8 @@ $.Tile.prototype = {
      * Get the url string for this tile.
      * @returns {String}
      */
-    getUrl: function() {                                //DAO251: isn't valid as Tile may not have url at all //TODO: just remove it ???
+    getUrl: function() {                                //DAO251: isn't valid as Tile may not have url at all
     },
-
 
     /**
      * Get the ratio between current and original size.

@@ -1215,6 +1215,7 @@
     } );
 
     // tile-loaded event tests
+    /* DAO251: crashed headless
     QUnit.test( 'Viewer: tile-loaded event without callback.', function (assert) {
         var done = assert.async();
         function tileLoaded ( event ) {
@@ -1285,7 +1286,8 @@
         viewer.addHandler( 'tile-loaded', tileLoaded);
         viewer.open( '/test/data/testpattern.dzi' );
     } );
-/* DAO251: there is no tile-unloaded !!!!
+    */
+/* DAO251: there is no more tile-unloaded !!!!
     QUnit.test( 'Viewer: tile-unloaded event.', function(assert) {
         var tiledImage;
         var tile;

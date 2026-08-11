@@ -2336,166 +2336,398 @@ $.TiledImage.prototype.getTileScale = function(level){
     return tileScale;
 };
 
-//TODO: Make Composite a class
+class Matrix {
+    constructor() {
+        this.rows = {};   // sparse: only rows that exist are allocated
+    }
+    set(x, y, value) {
+        let row = this.rows[y];
+        if (!row) {
+            row = this.rows[y] = {};
+        }
+        row[x] = value;
+    }
+    get(x, y) {
+        const row = this.rows[y];
+        return row ? row[x] : undefined;
+    }
+
+    toFlat() {
+        const out = [];
+        for (const y in this.rows) {
+            const row = this.rows[y];
+            for (const x in row) {
+                const v = row[x];
+                if (v !== undefined && v !== null) {
+                    out.push(v);
+                }
+            }
+        }
+        return out;
+    }
+}
+
+class Composite {
+
+    constructor(obj){
+        this.__tiledImage = obj.tiledImage;         // tiledImage this composite belongs to
+        this.imgImage = obj.imgImage;               // Rect: tiledImage in image coordinates (highest-res level)
+        this.tileWidth = obj.tileWidth;             // tile dimensions for the tiledImage
+        this.tileHeight = obj.tileHeight;           // (to avoid recalculations yet, must be at the tiledImage )
+        this.level = obj.level;                     // pyramid level
+        this.levelScale = obj.levelScale;           // current level tiles scale
+        this.tilComposite = obj.tilComposite;       // Rect: this Composite in tile coordinates
+        this.lyrComposite = obj.lyrComposite;       // Rect: this Composite in layer pixel coordinates
+        this.lyrDrawArea = obj.lyrDrawArea;         // Rect: currentDrawArea in layer pixel coordinates
+
+        this.context = $.Utils.newOffscreenCanvas().getContext('2d');
+    }
+
+    get numberOfTiles(){
+        return this.tilComposite.width * this.tilComposite.height;
+    }
+
+    drawPlaceholder (x, y) {
+        const ctx = this.context;
+        const dw = this.tileWidth;
+        const dh = this.tileHeight;
+        const dx = x * dw;
+        const dy = y * dh;
+
+        const tiledImage = this.__tiledImage;
+        const fillStyle = ( typeof tiledImage.placeholderFillStyle === "function" ?
+                    tiledImage.placeholderFillStyle(tiledImage, ctx) :
+                    tiledImage.placeholderFillStyle
+                );
+        if (fillStyle) {
+            ctx.save();
+                ctx.fillStyle = fillStyle;
+                ctx.clearRect(dx, dy, dw, dh);  // in case something(?) left on the canvas(???) AND fillStyle has transparency
+                ctx.fillRect(dx, dy, dw, dh);
+            ctx.restore();
+        }
+    }
+
+    drawTile(x, y, tile) {
+        const ctx = this.context;
+        const tileWidth = this.tileWidth;
+        const tileHeight = this.tileHeight;
+
+        const tileLevel = this.level;
+        const fallbackLevel = tile.level;
+
+        const scale = 1 << (tileLevel - fallbackLevel);
+
+        // Which sub-tile inside the fallback tile we need
+        const subX = x % scale;
+        const subY = y % scale;
+
+        // Source crop inside fallback tile image
+        const sw = tileWidth / scale;
+        const sh = tileHeight / scale;
+        let sx = subX * sw;
+        let sy = subY * sh;
+
+        // trim off tileOverlap here (if not trimmed off at ImageLoader !!!)
+        //DAO251: use the __trimOverlapsOnLoad OSD option while refactoring
+        //TODO: remove the code below when trim is implemented at ImageLoader
+        if( !$.__trimOverlapsOnLoad ){
+            const tileOverlap =  this.__tiledImage.source.tileOverlap;
+            if ( tileOverlap ){
+                sx += tile.x ? tileOverlap : 0;
+                sy += tile.y ? tileOverlap : 0;
+            }
+        }
+
+        // Destination rectangle
+        const dx = x * tileWidth;
+        const dy = y * tileHeight;
+        const dw = tileWidth;
+        const dh = tileHeight;
+
+        ctx.clearRect(dx, dy, dw, dh);  // must clear first as we're not clearing the entire canvas
+        ctx.drawImage( tile.getImage(), sx, sy, sw, sh, dx, dy, dw, dh );
+
+        return tile;
+    }
+
+    updateTile(x, y){
+        const minLevel = this.__tiledImage.source.minLevel;
+        const drawnTile = this.drawnTiles.get(x, y);
+        for( let l = this.level; l >= minLevel; l-- ){
+            const shift = this.level - l;
+            const tile = this.__tiledImage.getTile( l, x >> shift, y >> shift );
+            if ( drawnTile?.level === tile.level ){
+                return false;
+            }
+            if (tile.exists && tile.loaded){
+                //TODO: handle non-existing tiles more accurate ?
+                this.drawTile(x, y, tile);
+                this.drawnTiles.set( x, y, tile);
+                // debug info (tile coords) must be drawn here, to avoid induced bugs
+                if( this.__tiledImage.debugMode ){
+                    this.drawDebugInfo(x, y, tile);
+                }
+                return true;
+            }
+        }
+        if ( drawnTile !== null ){
+            this.drawPlaceholder(x, y);
+            this.drawnTiles.set( x, y, null);
+            // debug info ("no tile") must be drawn here, to avoid induced bugs
+            if( this.__tiledImage.debugMode ){
+                this.drawDebugInfo(x, y);    // tile = undefined;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    drawDebugInfo(x, y, tile){
+        const ctx = this.context;
+        const dx = x * this.tileWidth;
+        const dy = y * this.tileHeight;
+        const dw = this.tileWidth;
+        const dh = this.tileHeight;
+        ctx.save(); // OK in debug mode
+        {
+            // styles for debugMode
+            ctx.strokeStyle = ctx.fillStyle = "rgba(255, 63, 255)";
+            // use larger font for lower-res tiles
+            const fontSize = 20 + (this.level - (tile ? tile.level : -1)) * 8;
+            ctx.font = `${fontSize}px monospace`;
+            ctx.lineWidth = 1;
+
+            ctx.translate(dx, dy);
+            ctx.strokeRect( 0.5, 0.5, dw - 1, dh - 1);
+            if (this.__tiledImage.flipped){
+                ctx.textAlign = "right";
+                ctx.scale(-1, 1);
+            }
+            const text = (tile ? ` ${tile.level}:${tile.x}:${tile.y} ` : "no tile");
+            ctx.fillText(text, 0, 25);
+        }
+        ctx.restore();
+    }
+
+    clear(){
+        const ctx = this.context;
+        $.Utils.clearContext(ctx, this.lyrComposite.width, this.lyrComposite.height);
+
+        // DON'T smooth, all coordinates are Integers, no scale, no rotation !!!!
+        ctx.imageSmoothingEnabled = false;
+        ctx.translate( -this.lyrComposite.x, -this.lyrComposite.y );
+
+        this.drawnTiles = new Matrix();
+    }
+
+    startLoadingTiles(){
+        const tiledImage = this.__tiledImage;
+        const level = this.level;
+        const minLevel = tiledImage.source.minLevel;
+        const tilComposite = this.tilComposite;
+        const currentTime = Date.now();
+
+        let tilesToLoad = new Set();
+
+        for(let x = tilComposite.x; x < tilComposite.x + tilComposite.width; x++ ){
+            for(let y = tilComposite.y; y < tilComposite.y + tilComposite.height; y++ ){
+                const drawnTile = this.drawnTiles.get(x, y);
+                const drawnLevel = drawnTile ? drawnTile.level : -1;
+                for( let l = level; l > Math.max(drawnLevel, minLevel); l--){
+                    const shift = level - l;
+                    const tile = this.__tiledImage.getTile( l, x >> shift, y >> shift );
+                    if( !tile.loaded ){
+                        tilesToLoad.add(tile);
+                    }
+                }
+            }
+        }
+
+        tilesToLoad = [...tilesToLoad]
+            .sort((a, b) => {
+                // sort by loading flag
+                if (a.loading !== b.loading) {
+                    return a.loading ? -1 : 1;
+                }
+                // if both tiles are loading, treat them as equal priority
+                if (a.loading && b.loading) {
+                    return 0;
+                }
+                // sort by level
+                if (a.level !== b.level) {
+                    return a.level - b.level;
+                }
+                // sort by distance from the composite center
+                const shift = level - a.level;
+                const x0 = (tilComposite.x >> shift) + (tilComposite.width >> (shift + 1));
+                const y0 = (tilComposite.y >> shift) + (tilComposite.height >> (shift + 1));
+                const dxA = a.x - x0;
+                const dyA = a.y - y0;
+                const da  = dxA * dxA + dyA * dyA;
+
+                const dxB = b.x - x0;
+                const dyB = b.y - y0;
+                const db  = dxB * dxB + dyB * dyB;
+
+                return da - db;
+            })
+            // 6 images is HTTP 1.1 limit per origin, not using maxTilesPerFrame
+            // do not add tiles to ImageLoaders while there are 6 loading
+            // TODO: review ImageLoader(?) (for smoother fast panning)
+            .slice(0, 6)
+            .filter((tile => !tile.loading));
+
+            for (const tile of tilesToLoad) {
+                tiledImage._loadTile(tile, currentTime);
+            }
+
+    }
+
+    update(){
+        const tilComposite = this.tilComposite;
+        let updated = this.updated;
+
+        for(let x = tilComposite.x; x < tilComposite.x + tilComposite.width; x++ ){
+            for(let y = tilComposite.y; y < tilComposite.y + tilComposite.height; y++ ){
+                updated = this.updateTile( x, y ) || updated;
+            }
+        }
+        return (this.updated = updated);
+    }
+
+} // end of Composite class
 
 $.TiledImage.prototype.getTile = function(level, x, y){
     return this._getTile(x, y, level, Date.now(), this.source.getNumTiles(level));  //TODO: get rid of this code smell...
 };
 
-$.TiledImage.prototype.buildComposite = function( composite ) {
-
-    const lyrComposite = composite.lyrComposite;
-    const level = composite.level;
-    const tilComposite = composite.tilComposite;
-    const tileWidth = composite.tileWidth;
-    const tileHeight = composite.tileHeight;
-
-    // create CompositeCanvas
-    if ( !this.__compositeContexts ){
-        this.__compositeContexts = [];
-    }
-
-    if ( !this.__compositeContexts[level] ){
-        const canvas = $.Utils.newOffscreenCanvas();
-        this.__compositeContexts[level] = canvas.getContext('2d');
-    }
-
-
-    // stich tiles on compositeCanvas
-    const compositeContext = this.__compositeContexts[level];
-    $.Utils.clearContext(compositeContext, lyrComposite.width, lyrComposite.height);
-
-    // DON'T smooth, all coordinates are Integers, no scale, no rotation !!!!
-    compositeContext.imageSmoothingEnabled = false;
-    compositeContext.translate( -lyrComposite.x, -lyrComposite.y );
-
-    composite.context = compositeContext;
-
-    const drawPlaceholder = ( ctx, dx, dy, dw, dh) => {
-        const fillStyle = ( typeof this.placeholderFillStyle === "function" ?
-                    this.placeholderFillStyle(this, ctx) :
-                    this.placeholderFillStyle
-                );
-        if (fillStyle) {
-            ctx.save();
-            ctx.fillStyle = fillStyle;
-            ctx.fillRect(dx, dy, dw, dh);
-            ctx.restore();
-        }
-    };
-
-    // TODO: make it a separate method after moving to TiledImage class
-    //  OR: make it a method of the Tile class
-    //  returns the drawn tile or undefined if e.g. not loaded
-    //  sx, sy... - source coords; dx, dy... - destination coords
-    const drawTile = (tile, ctx, sx, sy, sw, sh, dx, dy, dw, dh) => {
-        if (tile && tile.exists && tile.loaded){
-            const tileImage = tile.getImage();
-
-            // trim off tileOverlap here (if not trimmed off at ImageLoader !!!)
-            //DAO251: use the __trimOverlapsOnLoad OSD option while refactoring
-            //TODO: remove it when implemented at ImageLoader
-            if( !$.__trimOverlapsOnLoad ){
-                const tileOverlap =  tile.tiledImage.source.tileOverlap;
-                if ( tileOverlap ){
-                    sx += tileOverlap * Math.sign(tile.x);
-                    sy += tileOverlap * Math.sign(tile.y);
-                }
-            }
-
-            ctx.drawImage(tileImage, sx, sy, sw, sh, dx, dy, dw, dh);
-            return tile;
-        }
-        return undefined;
-    };
-
-    const drawTileCascade = ( tile, ctx, dx, dy, dw, dh) => {
-        const { level, x, y } = tile;
-        const minLevel = tile.tiledImage.source.minLevel;
-
-        let tileLevel = level;      // level of the tile to draw
-        let drawn;                  // return value : actually drawn tile
-
-        // initial source rect (full tile from level)
-        let [lsx, lsy, lsw, lsh] = [0, 0, dw, dh];
-
-        while (!drawn) {
-
-            // Try drawing the tile from tileLevel
-            drawn = drawTile(tile, ctx, lsx, lsy, lsw, lsh, dx, dy, dw, dh);
-            if(drawn) return drawn;                                             // eslint-disable-line curly
-
-            // fallback
-            tileLevel--;
-            if (tileLevel < minLevel) return undefined;                         // eslint-disable-line curly
-
-            // Compute next fallback tile
-            const shift = level - tileLevel;
-            tile = this.getTile( tileLevel, x >> shift, y >> shift );
-
-            // Compute fallback source rect
-            const scale = 1 << shift;
-            const mask  = scale - 1;
-
-            lsw = dw / scale;
-            lsh = dh / scale;
-            lsx = (x & mask) * lsw;
-            lsy = (y & mask) * lsh;
-        }
-
-        return undefined;
-    };
-
-    const drawDebugInfo = (tile, ctx, dx, dy, dw, dh) => {
-        ctx.save(); // OK in debug mode
-        {
-            // styles for debugMode
-            ctx.strokeStyle = ctx.fillStyle = "rgba(255, 63, 255)";
-            ctx.font = "20px monospace";
-            ctx.lineWidth = 1;
-
-            ctx.translate(dx, dy);
-            ctx.strokeRect( 0.5, 0.5, dw - 1, dh - 1);
-            if (this.flipped){
-                ctx.textAlign = "right";
-                ctx.scale(-1, 1);
-            }
-            ctx.fillText(`  ${tile.level}:${tile.x}:${tile.y}  `, 0, 25);
-        }
-        ctx.restore();
-    };
-
-    // iterateXY wrapper for the XY loop. Just in case we decide to change the order later...
-    const iterateXY = (W, H, visit) => {
-        for( let x = 0; x < W; x++ ){
-            for( let y = 0; y < H; y++ ){
-                visit(x, y);
-            }
-        }
-    };
-
-    iterateXY( tilComposite.width, tilComposite.height,
-        (x, y) => {
-            const tile = this.getTile( level, tilComposite.x + x, tilComposite.y + y );
-            const drawn = drawTileCascade( tile, compositeContext,
-                tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
-            );
-            if ( !drawn ){
-                drawPlaceholder( compositeContext,
-                    tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
-                );
-                return;
-            }
-            // debug info must be drawn here, to avoid induced bugs
-            if (this.debugMode){
-                drawDebugInfo( drawn, compositeContext,
-                    tile.x * tileWidth, tile.y * tileHeight, tileWidth, tileHeight,
-                );
-            }
-        }
-    );
-
+$.TiledImage.prototype.updateComposite = function() {
+    return this.__composite?.update();
 };
 
+$.TiledImage.prototype.startLoadingTiles = function() {
+    return this.__composite?.startLoadingTiles();
+};
+
+$.TiledImage.prototype.prepareComposite = function() {
+
+
+//DAO251: just copied this code from TiledImage.update()
+//  the calls inside if(updated) below may cause some performance drop (?)
+
+    let xUpdated = this._xSpring.update();
+    let yUpdated = this._ySpring.update();
+    let scaleUpdated = this._scaleSpring.update();
+    let degreesUpdated = this._degreesSpring.update();
+
+    let updated = (xUpdated || yUpdated || scaleUpdated || degreesUpdated /*|| this._needsUpdate*/);
+
+    this._needsUpdate = false;
+
+    if (updated) {
+        this._updateForScale();
+        this._raiseBoundsChange();
+        this._needsDraw = true;
+    }
+
+//-----------
+
+    const level = this.getZoomLevel();
+
+    let drawArea = this.getDrawArea();
+    if (!drawArea){
+        return (this.__composite = undefined);
+    }
+
+    const imgSize = this.getContentSize();
+    const imgImage = new $.Rect(0, 0, imgSize.x, imgSize.y);
+
+    const maxLevel =  this.source.maxLevel;
+
+    const tileWidth = this.source.getTileWidth(maxLevel);         //TODO: replace with just .tileWidth      // we only support 2x2 tile pyramids !!!!
+    const tileHeight = this.source.getTileHeight(maxLevel);       //TODO: replace with just .tileHeight     // we only support 2x2 tile pyramids !!!!
+    const tileSize = new $.Point(tileWidth, tileHeight);
+
+    const levelScale = 2 ** ( maxLevel - level );
+
+    // drawArea Rectangle in image pixels
+    // expanding to integer bounds may cause negative x,y
+    // intesection may cause floating point values
+    // So we need both: intersection and rounding !!!
+    let imgDrawArea = drawArea.times(imgSize.x).expandToIntegerBounds().intersection(imgImage).apply(Math.round);
+
+    // clip here
+    const imgClip = this.getClip();
+    if( imgClip ){
+        imgDrawArea = imgDrawArea.intersection(imgClip).apply(Math.round);
+    }
+
+    // flip
+    //DAO251: it would be better if drawArea had a negative width, but it doesn’t. So we have to flip.
+    if( this.flipped ){
+        imgDrawArea =  imgDrawArea.flip( imgSize.x / 2 );
+    }
+
+    const imgTileSize = tileSize.times(levelScale);                                 // tileSize in image pixels
+    const tilComposite = imgDrawArea.unscale(imgTileSize).expandToIntegerBounds();  // composite context rectangle in tile numbers
+    const lyrComposite = tilComposite.scale(tileSize);                              // Composite context rectangle in level pixels
+    const lyrDrawArea = imgDrawArea.times( 1 / levelScale ).apply(Math.round);      // DrawArea in level pixels
+
+    if ( lyrComposite.width <= 0 || lyrComposite.height <= 0){    // to be on the safe side
+        return (this.__composite = undefined);
+    }
+
+    const composite = this.__composite || new Composite({tiledImage: this});
+    const compositeOptions = {
+        imgImage,
+        level,
+        levelScale,
+        tilComposite,
+        lyrDrawArea,
+        lyrComposite,
+        tileWidth,
+        tileHeight,
+        debugMode: this.debugMode,
+        updated,
+    };
+
+    const compositeChanged =
+            level !== composite.level ||
+            composite.debugMode !== this.debugMode ||
+            !tilComposite.equals(composite.tilComposite);
+
+    Object.assign(composite, compositeOptions);
+
+    if( compositeChanged ){
+        composite.clear();
+    }
+
+    return (this.__composite = composite);
+};
+
+Object.defineProperty($.TiledImage.prototype, "tilesOnScreen", {
+    get: function () {
+        return (this.__composite?.numberOfTiles || 0);
+    },
+    enumerable: true,
+    configurable: false,
+});
+
+Object.defineProperty($.TiledImage.prototype, "composite", {
+    get: function () {
+        return this.__composite;
+    },
+    enumerable: true,
+    configurable: false,
+});
+
+Object.defineProperty($.TiledImage.prototype, "compositeUpdated", {
+    get: function () {
+        return !!this.__composite?.updated;
+    },
+    enumerable: true,
+    configurable: false,
+});
 
 }( OpenSeadragon ));

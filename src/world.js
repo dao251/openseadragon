@@ -247,12 +247,24 @@ $.extend( $.World.prototype, $.EventSource.prototype, /** @lends OpenSeadragon.W
      * all TiledImages need to be updated.
      */
     update: function(viewportChanged) {
-        var animated = false;
+        var updated = false;
+        var tileCount = 0;
         for ( var i = 0; i < this._items.length; i++ ) {
-            animated = this._items[i].update(viewportChanged) || animated;
+            const tiledImage = this._items[i];
+            tiledImage.prepareComposite();
+
+            // expand cache size if necessary (make cache size at least twice all current Composites )
+            // tileCount += composite.numberOfTiles;
+            tileCount += tiledImage.tilesOnScreen;
+            this.viewer.tileCache.expand( tileCount * 2 );     // does nothing if tileCache is large enough
+
+            tiledImage.startLoadingTiles();
+
+            // draw tiles on the composite canvas
+            updated = tiledImage.updateComposite() || updated;
         }
 
-        return animated;
+        return updated;
     },
 
     /**

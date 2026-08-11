@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <title>use within IFRAME</title>
@@ -12,7 +12,8 @@
         #osd {
             width: 100%;
             height: 100%;
-            background-color: rgb(223,223,255);
+            /* background-color: rgb(223,223,255); */
+            background-image: url("../data/bg.jpg");
         }
         .openseadragon-canvas:focus {
             outline: none;
@@ -58,10 +59,6 @@
             {
                 tileSource: "/test/data/monalisa.dzi",
             },
-            drawer: 'drawer',
-            maxImageCacheCount: 2000,   // set to a big number as we only draw one layer yet
-            maxTilesPerFrame: 9999,     // why add extra delays ???? !!!
-            lodRangeFactor: 1,
         }
 
     Object.assign( viewerOptions, thisViewerOptions, {id: "osd"} );
@@ -77,9 +74,6 @@
             viewer.addHandler( "zoom", syncHandler, {id: myId});
             viewer.addHandler( "rotate", syncHandler, {id: myId});
             viewer.addHandler( "flip", syncHandler, {id: myId});
-        }
-        if(myId === 0){
-            viewer.addHandler( "animation", osd.animationHandler );
         }
     }
 

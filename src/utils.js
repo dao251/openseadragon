@@ -339,5 +339,48 @@ $.Utils = class {
             x instanceof SVGImageElement
         );
     }
+
+    /**
+     * Aligns an element to the device pixel grid to reduce blur.
+     * The method snaps the element's position to whole device pixels
+     * by adjusting its transform without affecting layout.
+     *
+     * @param {HTMLElement} el - The element to align.
+     */
+    static snapElementToDevicePixels(el) {
+        const dpr = window.devicePixelRatio;
+        const rect = el.getBoundingClientRect();
+        let snappedLeft = Math.round(rect.left * dpr) / dpr;
+        let snappedTop = Math.round(rect.top * dpr) / dpr;
+        const q = 1 / dpr;
+        snappedLeft = Math.round(snappedLeft / q) * q;
+        snappedTop = Math.round(snappedTop / q) * q;
+        const dx = snappedLeft - rect.left;
+        const dy = snappedTop - rect.top;
+        const EPS = 1e-5;
+        if (Math.abs(dx) < EPS && Math.abs(dy) < EPS) {
+            return;
+        }
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+
+    /**
+     * Clears a canvas context efficiently by resizing the canvas when needed
+     * or resetting the transform and clearing the existing buffer otherwise.
+     *
+     * @param {CanvasRenderingContext2D} ctx - The drawing context to clear.
+     * @param {number} w - The target width in pixels.
+     * @param {number} h - The target height in pixels.
+     */
+    static clearContext(ctx, w, h){
+        if ( ctx.canvas.width !== w || ctx.canvas.height !== h){
+            ctx.canvas.width = w;
+            ctx.canvas.height = h;
+        }else{
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+        }
+    }
+
 };
 }(OpenSeadragon));

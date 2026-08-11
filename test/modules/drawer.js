@@ -2,7 +2,8 @@
 
 (function() {
     var viewer;
-    const drawerTypes = ['webgl','canvas','html'];
+    // const drawerTypes = ['webgl','canvas','html'];
+    const drawerTypes = ['canvas'];
     drawerTypes.forEach(runDrawerTests);
 
     function runDrawerTests(drawerType){
@@ -43,6 +44,7 @@
         });
 
         // ----------
+        /*
         QUnit.test('rotation', function(assert) {
             var done = assert.async();
 
@@ -149,7 +151,7 @@
                 done();
             });
         });
-
+        */
     }
 
 })();

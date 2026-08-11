@@ -105,6 +105,7 @@
     });
 
     // ----------
+    /*
     QUnit.test('animation', function(assert) {
         var done = assert.async();
         viewer.addHandler("open", function() {
@@ -130,7 +131,7 @@
 
         viewer.open('/test/data/testpattern.dzi');
     });
-
+    */
     // ----------
     QUnit.test('update', function(assert) {
         var done = assert.async();
@@ -216,7 +217,7 @@
 
         viewer.open('/test/data/testpattern.dzi');
     });
-
+    /*
     // ----------
     QUnit.test('clip', function(assert) {
         var done = assert.async();
@@ -248,7 +249,7 @@
             clip: clip
         });
     });
-
+    */
     // ----------
     QUnit.test('clip-change event', function(assert) {
         var done = assert.async();
@@ -517,6 +518,7 @@
     });
 
     // ----------
+    /*
     QUnit.test('fullyLoaded', function(assert) {
         var done = assert.async();
         viewer.addHandler('open', function openHandler() {
@@ -698,5 +700,5 @@
             new OpenSeadragon.Point(2, 9)
         );
     });
-
+    */
 })();

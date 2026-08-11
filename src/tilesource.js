@@ -757,8 +757,6 @@ $.TileSource.prototype = {
     getTileImage: function( level, x, y, signal, _loadWithAjax, _ajaxHeaders, crossOriginPolicy ) {
         //DAO251: default functionality provided for backward compatibility
         //  users can override and may ignore signal
-        //  and/or MUST ignore _ajax parameters
-        // var url;
 
         const fetchOptions = this.getTileFetchOptions(level, x, y, _loadWithAjax, _ajaxHeaders);
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>Drawer Demo</title>
     <style type="text/css">
@@ -33,54 +33,67 @@
     </style>
 </head>
 <body>
-    <div>
-        <select id="images" onchange="reloadPage()">
-        </select>
-    </div>
-    <div style="width: 300px; margin-top:30px; display: flex;">
+    <div style="display: flex;">
         <div>
-            <select id="viewer0" onchange="reloadPage()"></select>
-            <iframe id="0" class="openseadragon1" src="_viewer.html"></iframe>
+            <iframe id="0" class="openseadragon1"></iframe>
         </div>
-        <div style="display:flex; flex-direction:column;">
-        <form id="control_form" onsubmit="return false;">
-            <div> </div>
-            <div> </div>
-            <div style="border-bottom:1px solid #000;"> </div>
-            <div> </div>
-            <label>&lt;-Level: <span id="level"> </span></label>
-            <label>&lt;-Tile Scale</label>
-            <input id="scale" type=number step=any onchange="onScale(this.value);">
-            <button id="perfect-btn" onclick="onPerfect();">Zoom to Pixels</button>
-            <label> </label>
-            <label>&lt;-LoD Range Factor: <span id="lrf">1.0</span></label>
-            <input id="lod" type="range" min="0" max="4" step="0.1" value="1" oninput="setRangeFactor(this.value)">
-            <!-- <label>&lt;-<input type="checkbox" onchange="snapToDevice( this.checked )" checked>Snap To DevPx</label> -->
-            <label> </label>
-            <label><input type="checkbox" onchange="debug(this.checked)">Show Tile Grid</label>
-            <label> </label>
-            <div style="border-bottom:1px solid #000;"></div>
-            <label> </label>
-            <label>Image</label>
-            <label><input type="checkbox" onchange="rotate( this.checked * 30 )">Rotate</label>
-            <label><input type="checkbox" onchange="flip(this.checked)">Flip</label>
-            <label><input type="checkbox" onchange="clip(this.checked)">Clip</label>
-            <label><input type="checkbox" onchange="opacity(this.checked)">Opacity</label>
-            <div>GCO: <select onchange="onGCOselect(this.value)" id="gco_select"></select></div>
-            <label> </label>
-            <label><input type="checkbox" onchange="smooth(this.checked)" checked>Smooth</label>
-            <!-- <label><input type="checkbox" onchange="snapToDevice(this.checked)" checked>Snap to Device Px</label> -->
-            <!-- <label> </label> -->
-            <!-- <div style="border-bottom:1px solid #000;"></div> -->
-            <!-- <label> </label> -->
-            <!-- <label>Performance</label> -->
-            <!-- <label> </label> -->
-            <!-- <label><input type="checkbox" onchange="perf(this.checked)">Measure</label> -->
+        <div>
+        <form id="control_form" onsubmit="return false;" style="width: 200px; display:flex; flex-direction:column;">
+            <div style="width: 200px; display:flex; flex-direction:column; gap:2px;">
+                <select id="images" onchange="reloadPage()"></select>
+                <div>OSD version/drawer:</div>
+                <div>&lt;-<select id="viewer0" onchange="reloadPage()"></select></div>
+                <div>Compare to:</div>
+
+                <div style="align-self:flex-end;">
+                    <select id="viewer1" onchange="reloadPage()"></select>-&gt;
+                </div>
+
+                <div> </div>
+                <div><input type="checkbox" onchange="debug(this.checked)">Show Tile Grid</div>
+                <div> </div>
+                <div style="border-bottom:1px solid #000;"></div>
+                <div> </div>
+                <div>Image</div>
+                <div><input type="checkbox" onchange="rotate( this.checked * 30 )">Rotate</div>
+                <div><input type="checkbox" onchange="flip(this.checked)">Flip</div>
+                <div><input type="checkbox" onchange="clip(this.checked)">Clip</div>
+                <div><input type="checkbox" onchange="opacity(this.checked)">Opacity</div>
+                <!-- <div>GCO: <select onchange="onGCOselect(this.value)" id="gco_select"></select></div> -->
+                <!-- <div> </div> -->
+                <div><input type="checkbox" onchange="smooth(this.checked)" checked>Smooth</div>
+                <!-- <div><input type="checkbox" onchange="snapToDevice(this.checked)" checked>Snap to Device Px</div> -->
+            </div>
+
+            <div id="perf" style="width: 200px; display:flex; flex-direction:column; gap:2px;">
+                <div> </div>
+                <div style="border-bottom:1px solid #000;"></div>
+                <div> </div>
+                <div><input type="checkbox" onchange="perf(this.checked)">Measure Performance</div>
+                <div>upd/sec (rolling): <span id="cps" style="float: right;"></span></div>
+                <div>draw average (ms): <span id="draw_avg" style="float: right;"></span></div>
+                <div>draw calls: <span id="draw_cnt" style="float: right;"></span></div>
+                <div>update average (ms): <span id="updt_avg" style="float: right;"></span></div>
+                <div>upd roll avg (ms): <span id="updt_mavg" style="float: right;"></span></div>
+                <div>update calls: <span id="updt_cnt" style="float: right;"></span></div>
+            </div>
+            <div id="dao251" style="width: 200px; display:flex; flex-direction:column; gap:2px;">
+                <div> </div>
+                <div style="border-bottom:1px solid #000;"></div>
+                <div> </div>
+                <div>&lt;-Level: <span id="level"> </span></div>
+                <div>&lt;-Tile Scale</div>
+                <input id="scale" type=number step=any onchange="onScale(this.value);">
+                <button id="perfect-btn" onclick="onPerfect();">Zoom to Pixels</button>
+                <div> </div>
+                <div>&lt;-LoD Range Factor: <span id="lrf">1.0</span></div>
+                <input id="lod" type="range" min="0" max="4" step="0.1" value="1" oninput="setRangeFactor(this.value)">
+                <!-- <div>&lt;-<input type="checkbox" onchange="snapToDevice( this.checked )" checked>Snap To DevPx</div> -->
+            </div>
         </form>
     </div>
         <div>
-            <select id="viewer1" onchange="reloadPage()"></select>
-            <iframe id="1" class="openseadragon1" src="_viewer.html"></iframe>
+            <iframe id="1" class="openseadragon1"></iframe>
         </div>
     </div>
     <!-- <div>
@@ -96,6 +109,7 @@
                 tileSource: "../../test/data/monalisa.dzi",
                 text: "DZI Mona Lisa : 80MP (7479x11146 px) JPEG tiled into 256x256 (PNG) tiles",
                 clip: [ 2000, 2000, 2000, 4000 ],
+                viewerOptions: {fetchOptions:{}},
             },
             {
                 text: "DZI BBlue : 1000x1000 (256x256 PNG tiles)",
@@ -114,7 +128,7 @@
                     transform:  {
                         contrast: 1.5,
                         twist: "[0,0,1;0,1,0;0.9,0,0.1]"
-                    }
+                    },
                 },
                 clip: [ 20000, 15000, 10000, 10000],
             },
@@ -131,11 +145,19 @@
                     tilesUrl: "https://tile.memomaps.de/tilegen/", // non-CORS
                     lodRangeFactor: 2,
                 },
+                nonCORS: true,
             },
             {
                 tileSource: "https://openseadragon.github.io/example-images/duomo/duomo.dzi",
                 text: "DZI Duomo : (13920x10200 px) image ( 254x254 JPEG tiles with 1px overlap)",
                 clip: [ 1024, 768, 3072, 4096 ],
+            },
+            {
+                tileSource: [
+                    "../../test/data/monalisa.dzi",
+                    "../../test/data/bblue.dzi",
+                ],
+                text: "Stack",
             },
             // {
             //     tileSource: "../../test/data/testpattern.dzi",
@@ -146,22 +168,22 @@
 
         ];
         const viewers = [
-                {   version: "dao251 5.1.0 'drawer'",
+                {   version: "dao251 'canvas'",
                     url: "../../build/openseadragon/openseadragon.js",
                     viewerOptions:{
-                        drawer:'drawer',
-                        maxImageCacheCount: 1000,
-                        snapToDevicePixels: true,      // does not work yet...
+                        drawer:'canvas',
+                        maxImageCacheCount: 20,
+                        snapToDevicePixels: true,
                         lodRangeFactor: 1,
-                        // fetchOptions:{},
+                        fetchOptions:{},
                     }
                 },
-                {   version: "OSD 6.0.2 'canvas'",
-                    url: "../../.ver/OSD.6.0.2/openseadragon.js",
+                {   version: "OSD 6.1.0 'canvas'",
+                    url: "../../.ver/OSD.6.1.0/openseadragon.js",
                     viewerOptions: { drawer:'canvas' },
                 },
-                {   version: "OSD 6.0.2 'webgl'",
-                    url: "../../.ver/OSD.6.0.2/openseadragon.js",
+                {   version: "OSD 6.1.0 'webgl'",
+                    url: "../../.ver/OSD.6.1.0/openseadragon.js",
                     viewerOptions: { drawer:'webgl', loadTilesWithAjax: true },
                 },
                 {   version: "OSD 5.0.1 'canvas'",
@@ -176,29 +198,36 @@
                     url: "../../.ver/OSD.4.1.1/openseadragon.js",
                     viewerOptions: { },
                 },
+                {   version: "OSD 3.1.0 ",
+                    url: "../../.ver/OSD.3.1.0/openseadragon.js",
+                    viewerOptions: { },
+                },
+                {   version: "OSD 2.1.0 ",
+                    url: "../../.ver/OSD.2.1.0/openseadragon.js",
+                    viewerOptions: { },
+                },
             ]
-
-        const params = new URLSearchParams(location.search);
-        const demoImage = Number(params.get("i")) || 0;
-        const dParam = params.get("d") || 1 ;
-        let compareTo = 1;
-        if ( dParam === 'webgl'  ) compareTo = 2
-        if (!isNaN(Number(dParam)) ) compareTo = Number(dParam);
-
         window.OSD = {
             viewerOptions : {
                 prefixUrl: "../../build/openseadragon/images/",
                 showRotationControl: true,
                 showFlipControl: true,
-                // showNavigator: true,
 
                 rotationIncrement: 22.5,
                 zoomPerScroll: 1.1,   // "slow" mouse wheel for demo purposes
 
                 minZoomLevel: 0.01,
                 maxZoomPixelRatio: 4.00,
+
+                fetchOptions: {},
+
             },
         };
+
+        const params = new URLSearchParams(location.search);
+        const demoImage = Number(params.get("i")) || 0;
+        let mainViewer = Number(params.get("v")) || 0 ;  // "main" viewer
+        let compareTo  = Number(params.get("d")) || 0 ;  // "compare to" viewer
 
         const imageSelector = document.getElementById('images');
         for (let i=0; i<images.length; i++){
@@ -206,128 +235,142 @@
         }
         imageSelector.value = demoImage;
 
-        buildViewerSelect();
+        for(let i = 0; i < viewers.length; i++){
+            document.getElementById("viewer0").add(new Option( viewers[i].version, i));
+            document.getElementById("viewer1").add(new Option( viewers[i].version, i));
+        }
+        document.getElementById("viewer0").value = mainViewer;
         document.getElementById("viewer1").value = compareTo;
 
         window.reloadPage = function (){
-            location.search = `?i=${imageSelector.value}&d=${document.getElementById("viewer1").value}`
+            let m = Number(document.getElementById("viewer0").value);
+            let c = Number(document.getElementById("viewer1").value);
+            if( mainViewer === compareTo && m !== mainViewer ) c = m ;
+            if(m > c) [m, c] = [c, m];
+            location.search = `?i=${imageSelector.value}&v=${m}&d=${c}`
         }
 
-        OSD.viewerOptions.tileSources = [
-                { tileSource: { type:"image", url:"../../test/data/abstract_2048.png", buildPyramid: false}, opacity: 0 },
-                images[imageSelector.value].tileSource,
-            ];
-        // document.getElementById("control_form")?.reset();
-        document.getElementById("gco_select").replaceChildren();
-        buildGCOSelect();
+        OSD.viewerOptions.tileSources = images[imageSelector.value].tileSource;
+        // OSD.viewerOptions.tileSources = images[imageSelector.value].tileSource;
 
-        OSD.viewers = [
-            viewers[document.getElementById("viewer0").value],
-            viewers[document.getElementById("viewer1").value],
-        ];
-
-        let isSyncing = false;
-
-        OSD.syncHandler = function (event) {
-
-            const from = this.userData?.id
-            const me    = OSD.viewers[from].viewer;
-            const other = OSD.viewers[Number(!from)].viewer;
-            if (!isSyncing && me && other){
-                isSyncing = true;
-                other.viewport.zoomTo(me.viewport.getZoom());
-                other.viewport.panTo(me.viewport.getCenter());
-                other.viewport.rotateTo(me.viewport.getRotation());
-                other.viewport.setFlip(me.viewport.flipped);
-                isSyncing = false;
-            }
+        setInterval( () => {
             try{
-                const tiledImage = OSD.viewers[0].viewer.world.getItemAt(1);
-                const scale = tiledImage.lastDrawnTileScale;
-                const level = tiledImage.lastDrawnLevel;
-                document.getElementById("scale").value = scale.toFixed(17);
-                document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
-                document.getElementById("level").textContent = level;
+                document.getElementById('draw_avg').textContent =
+                    OSD.viewers[0].viewer.world.draw.perf.avg.toFixed(2);
+                document.getElementById('updt_avg').textContent =
+                    OSD.viewers[0].viewer.world.update.perf.avg.toFixed(2);
+                document.getElementById('updt_mavg').textContent =
+                    OSD.viewers[0].viewer.world.update.perf.windowAvg.toFixed(2);
+                document.getElementById('draw_cnt').textContent =
+                    OSD.viewers[0].viewer.world.draw.perf.count;
+                document.getElementById('updt_cnt').textContent =
+                    OSD.viewers[0].viewer.world.update.perf.count;
+                document.getElementById('cps').textContent =
+                    OSD.viewers[0].viewer.world.update.perf.windowCps.toFixed(0);
+
             }catch(e){}
-        }
 
-        OSD.animationHandler = function (event) {
             try{
-                const tiledImage = OSD.viewers[0].viewer.world.getItemAt(1);
+                const tiledImage = OSD.viewers[0].viewer.world.getItemAt(0);
                 const scale = tiledImage.lastDrawnTileScale;
                 const level = tiledImage.lastDrawnLevel;
                 document.getElementById("scale").value = scale.toFixed(17);
                 document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
                 document.getElementById("level").textContent = level;
-                const lodFactor = OSD.viewers[0].viewer.world.getItemAt(1).lodRangeFactor;
+                const lodFactor = OSD.viewers[0].viewer.world.getItemAt(0).lodRangeFactor;
                 document.getElementById('lod').value = lodFactor;
                 document.getElementById('lrf').textContent = lodFactor.toFixed(1);
             }catch(e){}
+        }, 250);  // update counters 4 times per second
+
+
+        if( mainViewer !== 0){
+            document.getElementById("dao251").style = "display:none;";
         }
 
-        window.debug = function(v) {
-            OSD.viewers[0].viewer.setDebugMode(v);
-            OSD.viewers[1].viewer.setDebugMode(v);
-        }
+        if( mainViewer == compareTo ) {
+            OSD.viewers = [
+                viewers[document.getElementById("viewer0").value],
+            ];
+            document.getElementById("0").style.width = "1024px";
+            document.getElementById("1").style.width = "0px";
+            document.getElementById("viewer1").style.opacity = "0.2";
+            document.getElementById("0").src = "_viewer.html";
 
-        window.flip = function(v) {
-            OSD.viewers[0].viewer.world.getItemAt(1).setFlip(v);
-            OSD.viewers[1].viewer.world.getItemAt(1).setFlip(v);
-        }
+        } else {
 
-        window.clip = function(v) {
-            const rect = (v ? images[imageSelector.value].clip : undefined);
-            if(rect){
-                OSD.viewers[0].viewer.world.getItemAt(1).setClip(
-                    new OSD.viewers[0].OpenSeadragon.Rect(...rect)
-                );
-                OSD.viewers[1].viewer.world.getItemAt(1).setClip(
-                    new OSD.viewers[1].OpenSeadragon.Rect(...rect)
-                );
-            }else{
-                OSD.viewers[0].viewer.world.getItemAt(1).setClip(null);
-                OSD.viewers[1].viewer.world.getItemAt(1).setClip(null);
+            OSD.viewers = [
+                viewers[document.getElementById("viewer0").value],
+                viewers[document.getElementById("viewer1").value],
+            ];
+            document.getElementById("0").src = "_viewer.html";
+            document.getElementById("1").src = "_viewer.html";
+            document.getElementById("perf").style = "display:none;";
+
+            OSD.viewerOptions.showNavigator = true;
+
+            let isSyncing = false;
+
+            OSD.syncHandler = function (event) {
+
+                const from = this.userData?.id
+                const me    = OSD.viewers[from].viewer;
+                const other = OSD.viewers[Number(!from)].viewer;
+                if (!isSyncing && me && other){
+                    isSyncing = true;
+                    other.viewport.zoomTo(me.viewport.getZoom());
+                    other.viewport.panTo(me.viewport.getCenter());
+                    other.viewport.rotateTo?.(me.viewport.getRotation());
+                    other.viewport.setFlip?.(me.viewport.flipped);
+                    isSyncing = false;
+                }
+                try{
+                    const tiledImage = OSD.viewers[0].viewer.world.getItemAt(0);
+                    const scale = tiledImage.lastDrawnTileScale;
+                    const level = tiledImage.lastDrawnLevel;
+                    document.getElementById("scale").value = scale.toFixed(17);
+                    document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
+                    document.getElementById("level").textContent = level;
+                }catch(e){}
             }
         }
 
-        window.rotate = function(v) {
-            OSD.viewers[0].viewer.world.getItemAt(1).setRotation(v);
-            OSD.viewers[1].viewer.world.getItemAt(1).setRotation(v);
-        }
 
-        window.opacity = function(v) {
-            OSD.viewers[0].viewer.world.getItemAt(0).setOpacity(v?1:0);
-            OSD.viewers[1].viewer.world.getItemAt(0).setOpacity(v?1:0);
-            OSD.viewers[0].viewer.world.getItemAt(1).setOpacity(v?.6:1);
-            OSD.viewers[1].viewer.world.getItemAt(1).setOpacity(v?.6:1);
+        window.debug = (v) => OSD.viewers.forEach( o => o.viewer.setDebugMode?.(v) )
+        window.flip  = (v) => OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).setFlip?.(v) )
+        window.clip  = (v) => {
+            const rect = (v ? images[imageSelector.value].clip : undefined);
+            if(rect)
+                OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).setClip(new o.OpenSeadragon.Rect(...rect)) )
+            else
+                OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).setClip(null) )
         }
+        window.rotate  = (v) => OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).setRotation?.(v) )
+        window.opacity = (v) => OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).setOpacity(v?.5:1) )
+        window.smooth  = (v) => OSD.viewers.forEach( o => o.viewer.drawer.setImageSmoothingEnabled?.(v) )
 
-        window.smooth = function(v) {
-            OSD.viewers[0].viewer.drawer.setImageSmoothingEnabled(v);
-            OSD.viewers[1].viewer.drawer.setImageSmoothingEnabled(v);
-        }
-
-        let unwrap0, unwrap1;
+        const unwraps = [];
 
         window.perf = function(v) {
             if (v) {
-                unwrap0 = wrapMethodWithPerf( OSD.viewers[0].viewer.drawer,"draw", 600);
-                unwrap1 = wrapMethodWithPerf( OSD.viewers[1].viewer.drawer,"draw", 600);
+                unwraps.length = 0; // clear unwraps
+                unwraps.push( wrapMethodWithPerf( OSD.viewers[0].viewer.world,"draw", 120) );
+                unwraps.push( wrapMethodWithPerf( OSD.viewers[0].viewer.world,"update", 120) );
             }else{
-                unwrap0();
-                unwrap1();
+                for( const unwrap of unwraps ) unwrap();
+                unwraps.length = 0; // clear unwraps
             }
         }
 
         window.setRangeFactor = function(v) {
             document.getElementById('lrf').textContent = Number(v).toFixed(1)
-            OSD.viewers[0].viewer.world.getItemAt(1).lodRangeFactor = v;
+            OSD.viewers[0].viewer.world.getItemAt(0).lodRangeFactor = v;
             OSD.viewers[0].viewer.forceRedraw();
         }
 
         window.onScale = function(v){
             const viewer = OSD.viewers[0].viewer;
-            const scale = viewer.world.getItemAt(1).lastDrawnTileScale;
+            const scale = viewer.world.getItemAt(0).lastDrawnTileScale;
             // const iScale = Math.round(scale)
             const currentZoom = viewer.viewport.getZoom();
             viewer.viewport.zoomTo(currentZoom/scale*Number(v),null,true);
@@ -335,59 +378,59 @@
 
         window.onPerfect = function(){ // zoom to perfect pixels at current level
             const viewer = OSD.viewers[0].viewer;
-            const scale = viewer.world.getItemAt(1).lastDrawnTileScale;
+            const scale = viewer.world.getItemAt(0).lastDrawnTileScale;
             const iScale = Math.round(scale)
             const currentZoom = viewer.viewport.getZoom();
             viewer.viewport.zoomTo(currentZoom/scale*iScale,null,true);
         }
 
-        window.onGCOselect = function(value){
-            OSD.viewers[0].viewer.world.getItemAt(0).setOpacity(value==='source-over' ? 0 : 1);
-            OSD.viewers[1].viewer.world.getItemAt(0).setOpacity(value==='source-over' ? 0 : 1);
-            OSD.viewers[0].viewer.world.getItemAt(1).compositeOperation = value;
-            OSD.viewers[1].viewer.world.getItemAt(1).compositeOperation = value;
-            OSD.viewers[0].viewer.forceRedraw();
-            OSD.viewers[1].viewer.forceRedraw();
-        }
+        // window.onGCOselect = function(value){
+        //     // OSD.viewers[0].viewer.world.getItemAt(0).setOpacity(value==='source-over' ? 0 : 1);
+        //     // OSD.viewers[1].viewer.world.getItemAt(0).setOpacity(value==='source-over' ? 0 : 1);
+        //     OSD.viewers[0].viewer.world.getItemAt(0).compositeOperation = value;
+        //     OSD.viewers[1].viewer.world.getItemAt(0).compositeOperation = value;
+        //     OSD.viewers[0].viewer.forceRedraw();
+        //     OSD.viewers[1].viewer.forceRedraw();
+        // }
 
-        function buildGCOSelect() {
-            const SAFE = [
-                "source-over", "source-in", "source-out", "source-atop",
-                "destination-over", "destination-in", "destination-out", "destination-atop",
-                "lighter", "copy", "xor",
-                "multiply", "screen", "overlay", "darken", "lighten",
-                "difference", "exclusion"
-            ];
+        // function buildGCOSelect() {
+        //     const SAFE = [
+        //         "source-over", "source-in", "source-out", "source-atop",
+        //         "destination-over", "destination-in", "destination-out", "destination-atop",
+        //         "lighter", "copy", "xor",
+        //         "multiply", "screen", "overlay", "darken", "lighten",
+        //         "difference", "exclusion"
+        //     ];
 
-            const UNSAFE = [
-                "color-dodge", "color-burn", "hard-light", "soft-light",
-                "hue", "saturation", "color", "luminosity"
-            ];
+        //     const UNSAFE = [
+        //         "color-dodge", "color-burn", "hard-light", "soft-light",
+        //         "hue", "saturation", "color", "luminosity"
+        //     ];
 
-            const sel = document.getElementById("gco_select");
+        //     const sel = document.getElementById("gco_select");
 
-            function addGroup(label, items) {
-                const g = document.createElement("optgroup");
-                g.label = label;
-                for (const v of items) {
-                    const o = document.createElement("option");
-                    o.value = v;
-                    o.textContent = v;
-                    g.appendChild(o);
-                }
-                sel.appendChild(g);
-            }
+        //     function addGroup(label, items) {
+        //         const g = document.createElement("optgroup");
+        //         g.label = label;
+        //         for (const v of items) {
+        //             const o = document.createElement("option");
+        //             o.value = v;
+        //             o.textContent = v;
+        //             g.appendChild(o);
+        //         }
+        //         sel.appendChild(g);
+        //     }
 
-            addGroup("Safe (tainted canvas OK)", SAFE);
-            addGroup("Unsafe (may break on tainted canvas)", UNSAFE);
-        }
+        //     addGroup("Safe (tainted canvas OK)", SAFE);
+        //     addGroup("Unsafe (may break on tainted canvas)", UNSAFE);
+        // }
 
-        function buildViewerSelect(el) {
-            for(let i = 0; i < viewers.length; i++){
-                const sel = document.getElementById(`viewer${Number(!!i)}`);
-                sel.add(new Option( viewers[i].version, i));
-            }
-        }
+        // function buildViewerSelect() {
+        //     for(let i = 0; i < viewers.length; i++){
+        //         const sel = document.getElementById(`viewer${Number(!!i)}`);
+        //         sel.add(new Option( viewers[i].version, i));
+        //     }
+        // }
 
     </script>
     <!-- <script>
