@@ -2452,11 +2452,12 @@ class Composite {
     }
 
     updateTile(x, y){
-        const minLevel = this.__tiledImage.source.minLevel;
+        const tiledImage = this.__tiledImage;
+        const minLevel = tiledImage.source.minLevel;
         const drawnTile = this.drawnTiles.get(x, y);
         for( let l = this.level; l >= minLevel; l-- ){
             const shift = this.level - l;
-            const tile = this.__tiledImage.getTile( l, x >> shift, y >> shift );
+            const tile = tiledImage.getTile( l, x >> shift, y >> shift );
             if ( drawnTile?.level === tile.level ){
                 return false;
             }
@@ -2465,9 +2466,15 @@ class Composite {
                 this.drawTile(x, y, tile);
                 this.drawnTiles.set( x, y, tile);
                 // debug info (tile coords) must be drawn here, to avoid induced bugs
-                if( this.__tiledImage.debugMode ){
+                if( tiledImage.debugMode ){
                     this.drawDebugInfo(x, y, tile);
                 }
+
+                tiledImage.viewer?.raiseEvent( 'update-tile', {
+                    tiledImage: tiledImage,
+                    tile: tile
+                });
+
                 return true;
             }
         }
@@ -2475,7 +2482,7 @@ class Composite {
             this.drawPlaceholder(x, y);
             this.drawnTiles.set( x, y, null);
             // debug info ("no tile") must be drawn here, to avoid induced bugs
-            if( this.__tiledImage.debugMode ){
+            if( tiledImage.debugMode ){
                 this.drawDebugInfo(x, y);    // tile = undefined;
             }
             return true;
@@ -2537,7 +2544,7 @@ class Composite {
                 for( let l = level; l > Math.max(drawnLevel, minLevel); l--){
                     const shift = level - l;
                     const tile = this.__tiledImage.getTile( l, x >> shift, y >> shift );
-                    if( !tile.loaded ){
+                    if( tile.exists && !tile.loaded ){
                         tilesToLoad.add(tile);
                     }
                 }
@@ -2723,8 +2730,20 @@ Object.defineProperty($.TiledImage.prototype, "composite", {
 });
 
 Object.defineProperty($.TiledImage.prototype, "compositeUpdated", {
-    get: function () {
+    get: function(){
         return !!this.__composite?.updated;
+    },
+    enumerable: true,
+    configurable: false,
+});
+
+Object.defineProperty($.TiledImage.prototype, "useOwnCache", {
+    get: function(){
+        return !!this.__useOwnCache;
+    },
+    set: function(value){
+        value = !!value;
+        this.__useOwnCache = value;
     },
     enumerable: true,
     configurable: false,
