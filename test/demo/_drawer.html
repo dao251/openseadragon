@@ -106,7 +106,11 @@
 
         const images = [
             {
-                tileSource: "../../test/data/monalisa.dzi",
+                tileSource: {
+                    tileSource: "../../test/data/monalisa.dzi",
+                    loadTilesWithAjax: true,
+                    useOwnCache: true,
+                },
                 text: "DZI Mona Lisa : 80MP (7479x11146 px) JPEG tiled into 256x256 (PNG) tiles",
                 clip: [ 2000, 2000, 2000, 4000 ],
                 viewerOptions: {fetchOptions:{}},
@@ -219,7 +223,7 @@
                 minZoomLevel: 0.01,
                 maxZoomPixelRatio: 4.00,
 
-                fetchOptions: {},
+                minPixelRatio: 1 / devicePixelRatio,
 
             },
         };
@@ -365,13 +369,12 @@
         window.setRangeFactor = function(v) {
             document.getElementById('lrf').textContent = Number(v).toFixed(1)
             OSD.viewers[0].viewer.world.getItemAt(0).lodRangeFactor = v;
-            OSD.viewers[0].viewer.forceRedraw();
+            // OSD.viewers[0].viewer.forceRedraw();
         }
 
         window.onScale = function(v){
             const viewer = OSD.viewers[0].viewer;
             const scale = viewer.world.getItemAt(0).lastDrawnTileScale;
-            // const iScale = Math.round(scale)
             const currentZoom = viewer.viewport.getZoom();
             viewer.viewport.zoomTo(currentZoom/scale*Number(v),null,true);
         }
