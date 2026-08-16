@@ -16,7 +16,7 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks("grunt-eslint");
     grunt.loadNpmTasks("grunt-git-describe");
     grunt.loadNpmTasks('grunt-text-replace');
-    grunt.loadNpmTasks('grunt-istanbul');
+    // grunt.loadNpmTasks('grunt-istanbul');
 
     // ----------
     var packageJson = grunt.file.readJSON("package.json"),
