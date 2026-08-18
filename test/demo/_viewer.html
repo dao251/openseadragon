@@ -75,6 +75,8 @@
             viewer.addHandler( "rotate", syncHandler, {id: myId});
             viewer.addHandler( "flip", syncHandler, {id: myId});
         }
+        // if( osd.animationHandler )
+        viewer.addHandler( "animation", osd.animationHandler);
     }
 
     function loadScriptAsync(url) {

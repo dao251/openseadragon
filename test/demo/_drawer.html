@@ -52,6 +52,9 @@
                 <div> </div>
                 <div><input type="checkbox" onchange="debug(this.checked)">Show Tile Grid</div>
                 <div> </div>
+                <div>minPixelRatio: <span id="mpr">0.5</span></div>
+                <input id="mprr" type="range" min="0.5" max="4" step="0.5" value="0.5" oninput="setMinPixRatio(this.value)">
+
                 <div style="border-bottom:1px solid #000;"></div>
                 <div> </div>
                 <div>Image</div>
@@ -223,7 +226,7 @@
                 minZoomLevel: 0.01,
                 maxZoomPixelRatio: 4.00,
 
-                minPixelRatio: 1 / devicePixelRatio,
+                // minPixelRatio: 1 / devicePixelRatio,
 
             },
         };
@@ -273,23 +276,22 @@
                     OSD.viewers[0].viewer.world.update.perf.windowCps.toFixed(0);
 
             }catch(e){}
-
-            try{
-                const tiledImage = OSD.viewers[0].viewer.world.getItemAt(0);
-                const scale = tiledImage.lastDrawnTileScale;
-                const level = tiledImage.lastDrawnLevel;
-                document.getElementById("scale").value = scale.toFixed(17);
-                document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
-                document.getElementById("level").textContent = level;
-                const lodFactor = OSD.viewers[0].viewer.world.getItemAt(0).lodRangeFactor;
-                document.getElementById('lod').value = lodFactor;
-                document.getElementById('lrf').textContent = lodFactor.toFixed(1);
-            }catch(e){}
-        }, 250);  // update counters 4 times per second
+        }, 250);  // update performance counters 4 times per second
 
 
         if( mainViewer !== 0){
             document.getElementById("dao251").style = "display:none;";
+        } else {
+            OSD.animationHandler = (event) => {
+                    try{
+                        const tiledImage = OSD.viewers[0].viewer.world.getItemAt(0);
+                        const scale = tiledImage.lastDrawnTileScale;
+                        const level = tiledImage.lastDrawnLevel;
+                        document.getElementById("scale").value = scale.toFixed(17);
+                        document.getElementById("perfect-btn").disabled =( scale === Math.round(scale) );
+                        document.getElementById("level").textContent = level;
+                    }catch(e){}
+                }
         }
 
         if( mainViewer == compareTo ) {
@@ -372,11 +374,17 @@
             // OSD.viewers[0].viewer.forceRedraw();
         }
 
+        window.setMinPixRatio = function(v) {
+            document.getElementById('mpr').textContent = Number(v).toFixed(2)
+            OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).minPixelRatio = v )
+            OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).update() )
+        }
+
         window.onScale = function(v){
             const viewer = OSD.viewers[0].viewer;
-            const scale = viewer.world.getItemAt(0).lastDrawnTileScale;
+            // const scale = viewer.world.getItemAt(0).lastDrawnTileScale;
             const currentZoom = viewer.viewport.getZoom();
-            viewer.viewport.zoomTo(currentZoom/scale*Number(v),null,true);
+            viewer.viewport.zoomTo(currentZoom*Number(v),null,true);
         }
 
         window.onPerfect = function(){ // zoom to perfect pixels at current level
