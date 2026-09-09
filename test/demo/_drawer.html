@@ -38,7 +38,7 @@
             <iframe id="0" class="openseadragon1"></iframe>
         </div>
         <div>
-        <form id="control_form" onsubmit="return false;" style="width: 200px; display:flex; flex-direction:column;">
+        <form id="control_form" onsubmit="return false;" style="width: 200px; height: 600px; display:flex; flex-direction:column;">
             <div style="width: 200px; display:flex; flex-direction:column; gap:2px;">
                 <select id="images" onchange="reloadPage()"></select>
                 <div>OSD version/drawer:</div>
@@ -95,7 +95,13 @@
                 <input id="lod" type="range" min="0" max="4" step="0.1" value="1" oninput="setRangeFactor(this.value)">
                 <!-- <div>&lt;-<input type="checkbox" onchange="snapToDevice( this.checked )" checked>Snap To DevPx</div> -->
             </div>
-            <!-- <details open>
+            <div style="margin-top:auto;">
+                <small>
+                    <a href="https://github.com/dao251/osd-demo">source (inc. explanations)
+                        <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="20">
+                    </a>
+                </small>
+            </div><!-- <details open>
                 <summary>WebGL filters:</summary>
                 <div>1</div>
            </details>
@@ -122,6 +128,8 @@
     <script id="code" type="module">
 
         import { wrapMethodWithPerf } from "./perf-counter.js";
+
+        const min = window.location.origin.startsWith("http://localhost:8000") ? "" : ".min"
 
         const images = [
             {
@@ -200,7 +208,7 @@
         ];
         const viewers = [
                 {   version: "dao251 'canvas'",
-                    url: "../../build/openseadragon/openseadragon.min.js",
+                    url: `../../build/openseadragon/openseadragon${min}.js`,
                     viewerOptions:{
                         drawer:'canvas',
                         maxImageCacheCount: 20,
@@ -209,16 +217,26 @@
                         fetchOptions:{},
                     }
                 },
-                // {   version: "dao251 'webgl'",
-                //     url: "../../build/openseadragon/openseadragon.min.js",
-                //     viewerOptions:{
-                //         drawer:'webgl',
-                //         maxImageCacheCount: 20,
-                //         snapToDevicePixels: true,
-                //         lodRangeFactor: 1,
-                //         fetchOptions:{},
-                //     }
-                // },
+                {   version: "dao251 'webgl'",
+                    url: `../../build/openseadragon/openseadragon${min}.js`,
+                    viewerOptions:{
+                        drawer:'webgl',
+                        maxImageCacheCount: 20,
+                        snapToDevicePixels: true,
+                        lodRangeFactor: 1,
+                        fetchOptions:{},
+                    }
+                },
+                {   version: "dao251 'html'",
+                    url: "",
+                    viewerOptions:{
+                        drawer:'webgl',
+                        maxImageCacheCount: 20,
+                        snapToDevicePixels: true,
+                        lodRangeFactor: 1,
+                        fetchOptions:{},
+                    }
+                },
                 {   version: "OSD 6.1.0 'canvas'",
                     url: "../../.ver/OSD.6.1.0/openseadragon.js",
                     viewerOptions: { drawer:'canvas' },
@@ -277,8 +295,12 @@
         imageSelector.value = demoImage;
 
         for(let i = 0; i < viewers.length; i++){
-            document.getElementById("viewer0").add(new Option( viewers[i].version, i));
-            document.getElementById("viewer1").add(new Option( viewers[i].version, i));
+            const v = viewers[i]
+            for(const n of [0,1]){
+                const opt =  new Option( v.version, i);
+                opt.disabled = !v.url;
+                document.getElementById(`viewer${n}`).add(opt);
+            }
         }
         document.getElementById("viewer0").value = mainViewer;
         document.getElementById("viewer1").value = compareTo;
@@ -320,7 +342,7 @@
         }, 250);  // update performance counters 4 times per second
 
 
-        if( Number(mainViewer) > 1 ){
+        if( Number(mainViewer) > 2 ){
             document.getElementById("dao251").style = "display:none;";
         } else {
             OSD.animationHandler = (event) => {
@@ -434,11 +456,8 @@
 
         window.onScale = function(v){
             const viewer = OSD.viewers[0].viewer;
-            // const scale = Math.max(Math.min(0, (Number(v))), 20) || 1;
-            const scale = Number(v);
             const currentZoom = viewer.viewport.getZoom();
-            // viewer.viewport.zoomTo(currentZoom*scale,null,true);
-            viewer.viewport.zoomTo(currentZoom*scale);
+            viewer.viewport.zoomTo(currentZoom*Number(v));
         }
 
         window.onPerfect = function(){ // zoom to perfect pixels at current level
