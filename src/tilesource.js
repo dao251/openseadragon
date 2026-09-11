@@ -92,7 +92,7 @@
  * @param {Number} [options.maxLevel]
  *      The maximum level to attempt to load.
  * @param {Object} [options.fetchOptions]
- *      Default fetchOptions. When specified, options.crossOriginPolicy is ignored.
+ *      Default fetchOptions. When specified, options.ajax* and options.crossOriginPolicy are ignored.
  */
 $.TileSource = function( width, height, tileSize, tileOverlap, minLevel, maxLevel ) {
 
@@ -652,7 +652,9 @@ $.TileSource.prototype = {
      * @throws {Error}
      */
     getTileFetchOptions: function ( level, x, y, _loadWithAjax = false, _ajaxHeaders = {} ) {
-        var fetchOptions;
+        var fetchOptions = this.fetchOptions;
+        if( fetchOptions ) return fetchOptions;      // eslint-disable-line
+
         if ( _loadWithAjax ){                       // simulate via fetchOptions
             fetchOptions = { mode: "cors"};
             const postData = this.getTilePostData(level, x, y);

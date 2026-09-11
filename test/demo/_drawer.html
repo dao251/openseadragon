@@ -273,12 +273,12 @@
                 showFlipControl: true,
 
                 rotationIncrement: 22.5,
-                zoomPerScroll: 1.1,   // "slow" mouse wheel for demo purposes
+                zoomPerScroll: Math.sqrt(Math.sqrt(Math.SQRT2)),   // "slow" mouse wheel for demo purposes
 
                 minZoomLevel: 0.01,
                 maxZoomPixelRatio: 4.00,
 
-                // minPixelRatio: 1 / devicePixelRatio,
+                minPixelRatio: .5, //OSD default
 
             },
         };
@@ -408,7 +408,7 @@
 
 
         window.debug = (v) => OSD.viewers.forEach( o => o.viewer.setDebugMode?.(v) )
-        window.flip  = (v) => OSD.viewers.forEach( o => o.viewer.world.getItemAt(0).setFlip?.(v) )
+        window.flip  = (v) => OSD.viewers.forEach( o => { o.viewer.world.getItemAt(0).setFlip?.(v) ; o.viewer.forceRedraw(); } )
         window.clip  = (v) => {
             const rect = (v ? images[imageSelector.value].clip : undefined);
             if(rect)
