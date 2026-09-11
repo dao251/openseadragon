@@ -2428,7 +2428,7 @@ class Composite {
         }
     }
 
-    drawTile(x, y, tile) {
+    drawTile(x, y, tile, debugInfo) {
         // const ctx = this.context;
         const buffer = this.__tileBuffer;
         const tileWidth = this.tileWidth;
@@ -2467,7 +2467,7 @@ class Composite {
         const dh = tileHeight;
 
         buffer.clearRect(dx, dy, dw, dh);  // must clear first as we're not clearing the entire canvas
-        buffer.drawImage( tile.getImage(), sx, sy, sw, sh, dx, dy, dw, dh );
+        buffer.drawTileImage( tile.getImage(), {sx, sy, sw, sh}, {dx, dy, dw, dh}, debugInfo );
 
         return tile;
     }
@@ -2484,12 +2484,9 @@ class Composite {
             }
             if (tile.exists && tile.loaded){
                 //TODO: handle non-existing tiles more accurate ?
-                this.drawTile(x, y, tile);
+                const debugInfo = tiledImage.debugMode ? {level: this.level, x, y, tile, flipped: tiledImage.flipped} : null;
+                this.drawTile(x, y, tile, debugInfo );  // debugInfo must be drawn together with the tile to avoid induced bugs !!!!
                 this.drawnTiles.set( x, y, tile);
-                // debug info (tile coords) must be drawn here, to avoid induced bugs
-                if( tiledImage.debugMode ){
-                    this.drawDebugInfo(x, y, tile);
-                }
 
                 tiledImage.viewer?.raiseEvent( 'update-tile', {
                     tiledImage: tiledImage,
@@ -2502,49 +2499,9 @@ class Composite {
         if ( drawnTile !== null ){
             this.drawPlaceholder(x, y);
             this.drawnTiles.set( x, y, null);
-            // debug info ("no tile") must be drawn here, to avoid induced bugs
-            if( tiledImage.debugMode ){
-                this.drawDebugInfo(x, y);    // tile = undefined;
-            }
             return true;
         }
         return false;
-    }
-
-    drawDebugInfo(x, y, tile){              // TODO: move this to TileBffer class
-        const buffer = this.__tileBuffer;
-        const [tileWidth, tileHeight] = [this.tileWidth, this.tileHeight];
-
-        // destination rectangle
-        const dx = x * tileWidth - this.lyrCompositeRect.x;
-        const dy = y * tileHeight - this.lyrCompositeRect.y;
-        const dw = tileWidth;
-        const dh = tileHeight;
-
-        // VERY slow as we use an intermediate canvas - it is ok in debugMode for now
-
-        // source canvas
-        const canvas = $.Utils.newOffscreenCanvas(tileWidth, tileHeight);
-        const ctx = canvas.getContext('2d');
-
-        // fill the canvas with debigInfo
-        ctx.strokeStyle = ctx.fillStyle = "rgba(255, 63, 255)";
-        // use larger font for lower-res tiles
-        const fontSize = 20 + (this.level - (tile ? tile.level : -1)) * 8;
-        ctx.font = `${fontSize}px monospace`;
-        ctx.lineWidth = 1;
-
-        ctx.strokeRect( 0.5, 0.5, dw - 1, dh - 1);
-        if (this.__tiledImage.flipped){
-            ctx.textAlign = "right";
-            ctx.scale(-1, 1);
-        }
-        const text = (tile ? ` ${tile.level}:${tile.x}:${tile.y} ` : "no tile");
-        ctx.fillText(text, 0, 25);
-
-
-        buffer.drawImage( canvas, 0, 0, tileWidth, tileHeight, dx, dy, dw, dh );
-
     }
 
     clear(){

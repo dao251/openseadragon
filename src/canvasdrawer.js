@@ -78,8 +78,12 @@
             }
         }
 
-        drawImage( image, sx, sy, sw, sh, dx, dy, dw, dh ){
-            this.context.drawImage( image, sx, sy, sw, sh, dx, dy, dw, dh );
+        drawTileImage( image, {sx, sy, sw, sh}, {dx, dy, dw, dh}, debugInfo ){
+            const ctx = this.context;
+            ctx.drawImage( image, sx, sy, sw, sh, dx, dy, dw, dh );
+            if (debugInfo) {
+                $.Utils.drawDebugInfoOnCanvas(ctx, {dx, dy, dw, dh}, debugInfo);
+            }
         }
 
     }

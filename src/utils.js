@@ -376,5 +376,33 @@ $.Utils = class {
         return Math.ceil(value / quantum) * quantum;
     }
 
+    // helper used by drawers' buffer.drawTileImage
+    // debugInfo contains:
+    //      level   - at which level we are drawing (target tile)
+    //      tile    - what we are drawing (actual tile)
+    //      flipped - is image flipped ( not viewport! )
+    static drawDebugInfoOnCanvas (ctx, {dx, dy, dw, dh}, debugInfo ){
+        const {level, tile, flipped } = debugInfo;
+
+        ctx.save();
+            ctx.strokeStyle = ctx.fillStyle = "rgba(255, 63, 255)";
+
+            // use larger font for lower-res tiles
+            const fontSize = 20 + (level - (tile ? tile.level : -1)) * 8;
+            ctx.font = `${fontSize}px monospace`;
+            ctx.lineWidth = 1;
+
+            ctx.translate( dx, dy );
+            ctx.strokeRect( 0.5, 0.5, dw - 1, dh - 1);
+
+            if (flipped){
+                ctx.textAlign = "right";
+                ctx.scale(-1, 1);
+            }
+            const text = (tile ? ` ${tile.level}:${tile.x}:${tile.y} ` : "no tile");
+            ctx.fillText(text, 0, 25);
+        ctx.restore();
+    }
+
 };
 }(OpenSeadragon));

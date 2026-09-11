@@ -313,22 +313,14 @@ $.Tile.prototype = {
         return this.getUrl();
     },
 
+    //DAO251: the only three methods below deals with TileCache !!!!
+
     /**
      * Get HTMLElement for the tile.
      * @returns {Image}
      */
     getImage: function() {
-        return this.getCanvasContext().canvas;
-    },
-
-    //DAO251: the only three methods below deals with TileCache !!!!
-
-    /**
-     * Get the CanvasRenderingContext2D from TileCache
-     * @returns {CanvasRenderingContext2D}
-     */
-    getCanvasContext: function() {
-        return this.tiledImage._tileCache.use(this.cacheKey).context;
+        return this.tiledImage._tileCache.use(this.cacheKey).image;
     },
 
     /**
@@ -343,9 +335,8 @@ $.Tile.prototype = {
     /**
      * Sets (and caches) the canvas element for the tile
      */
-    setImage: function( canvas ){
-        const context = (canvas === undefined ? undefined : canvas.getContext('2d') );
-        this.tiledImage._tileCache.set( this.cacheKey, {tile: this, context: context} );
+    setImage: function( image ){
+        this.tiledImage._tileCache.set( this.cacheKey, {tile: this, image: image} );
     },
 
     //DAO251: end of TileCache usage

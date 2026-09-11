@@ -246,13 +246,13 @@ class WebGLTileBuffer {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 
-    drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh) {
+    drawTileImage(image, {sx, sy, sw, sh}, {dx, dy, dw, dh}, debugInfo) {
         const gl = this.gl;
 
         let img = image;
 
         // if(true){ // eslint-disable-line
-        if(sx !== 0 || sy !== 0 || sw !== dw || sh !== dh){
+        if(sx !== 0 || sy !== 0 || sw !== dw || sh !== dh || debugInfo ){
             // 1. Reuse a static temporary canvas
             img = WebGLTileBuffer._tmpCanvas || (WebGLTileBuffer._tmpCanvas = document.createElement("canvas"));
             img.width = dw;
@@ -268,6 +268,10 @@ class WebGLTileBuffer {
                 sx, sy, sw, sh,
                 0, 0, dw, dh   // integer scaling
             );
+            if (debugInfo) {
+                $.Utils.drawDebugInfoOnCanvas( tctx, { dx: 0, dy: 0, dw, dh }, debugInfo );
+            }
+
         }
 
         // 3. Upload scaled region into tileBuffer texture
