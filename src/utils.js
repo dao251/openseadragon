@@ -393,7 +393,7 @@ $.Utils = class {
             ctx.lineWidth = 1;
 
             ctx.translate( dx, dy );
-            ctx.strokeRect( 0.5, 0.5, dw - 1, dh - 1);
+            ctx.strokeRect( 0, 0, dw, dh );
 
             if (flipped){
                 ctx.textAlign = "right";

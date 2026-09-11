@@ -2377,6 +2377,24 @@ class Composite {
         this.__tiledImage = tiledImage;
 
         // ------ create tileBuffer:
+        // this.__tileBuffer = tiledImage?.viewer.drawer.newTileBuffer( bufferSize );
+        this.ensureBufferSize();
+
+        this.imgImageRect = obj.imgImageRect;               // Rect: tiledImage in image coordinates (highest-res level)
+        this.tileWidth = obj.tileWidth;             // tile dimensions for the tiledImage
+        this.tileHeight = obj.tileHeight;           // (to avoid recalculations yet, must be at the tiledImage )
+        this.level = obj.level;                     // pyramid level
+        this.levelScale = obj.levelScale;           // current level tiles scale
+        this.tilCompositeRect = obj.tilCompositeRect;       // Rect: this Composite in tile coordinates
+        this.lyrCompositeRect = obj.lyrCompositeRect;       // Rect: this Composite in layer pixel coordinates
+        this.lyrDrawAreaRect = obj.lyrDrawAreaRect;         // Rect: currentDrawArea in layer pixel coordinates
+
+        this.context = $.Utils.newOffscreenCanvas().getContext('2d');
+    }
+
+    // returns true if the buffer was created or its size was updated
+    ensureBufferSize( ){
+        const tiledImage = this.__tiledImage;
 
         const containerSize = tiledImage.viewport.getContainerSize()
             .times($.pixelDensityRatio)             // use device pixels, not logical
@@ -2391,18 +2409,13 @@ class Composite {
             $.Utils.alignUp( Math.min(imageSize.y, Math.ceil(maxDiag)), tiledImage.tileHeight)
         );
 
-        this.__tileBuffer = tiledImage?.viewer.drawer.newTileBuffer( bufferSize );
+        if( this.__tileBuffer && this.__tileBuffer.size === bufferSize ){
+            return false;
+        }
 
-        this.imgImageRect = obj.imgImageRect;               // Rect: tiledImage in image coordinates (highest-res level)
-        this.tileWidth = obj.tileWidth;             // tile dimensions for the tiledImage
-        this.tileHeight = obj.tileHeight;           // (to avoid recalculations yet, must be at the tiledImage )
-        this.level = obj.level;                     // pyramid level
-        this.levelScale = obj.levelScale;           // current level tiles scale
-        this.tilCompositeRect = obj.tilCompositeRect;       // Rect: this Composite in tile coordinates
-        this.lyrCompositeRect = obj.lyrCompositeRect;       // Rect: this Composite in layer pixel coordinates
-        this.lyrDrawAreaRect = obj.lyrDrawAreaRect;         // Rect: currentDrawArea in layer pixel coordinates
-
-        this.context = $.Utils.newOffscreenCanvas().getContext('2d');
+        this.__tileBuffer = tiledImage.viewer.drawer.newTileBuffer( bufferSize );
+        this.clear();
+        return true;
     }
 
     get numberOfTiles(){
@@ -2575,6 +2588,8 @@ class Composite {
     update(){
         const tilCompositeRect = this.tilCompositeRect;
         let updated = this.updated;
+
+        updated = updated || this.ensureBufferSize();
 
         for(let x = tilCompositeRect.x; x < tilCompositeRect.x + tilCompositeRect.width; x++ ){
             for(let y = tilCompositeRect.y; y < tilCompositeRect.y + tilCompositeRect.height; y++ ){
