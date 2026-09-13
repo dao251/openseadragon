@@ -11,12 +11,7 @@ const OpenSeadragon = $; // (re)alias back to OpenSeadragon for JSDoc
 /**
  * @class OpenSeadragon.Drawer
  * @extends OpenSeadragon.DrawerBase
- * @classdesc Default implementation of CanvasDrawer for an {@link OpenSeadragon.Viewer}.
- * @param {Object} options - Options for this Drawer.
- * @param {OpenSeadragon.Viewer} options.viewer - The Viewer that owns this Drawer.
- * @param {OpenSeadragon.Viewport} options.viewport - Reference to Viewer viewport.
- * @param {Element} options.element - Parent element.
- * @param {Number} [options.debugGridColor] - See debugGridColor in {@link OpenSeadragon.Options} for details.
+ * @classdesc Common Drawer {@link OpenSeadragon.Viewer}.
  */
 
 $.Drawer = class extends OpenSeadragon.DrawerBase{
@@ -59,9 +54,6 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         return 'drawer';
     }
 
-    /**
-     * @returns {Boolean} true if canvas is supported by the browser, otherwise false
-     */
     static isSupported(){
         return true;        // DAO251: all modern browsers support canvas
     }
@@ -195,7 +187,7 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         this.__currentCompositeOperation = tiledImage.compositeOperation;
         this.__currentOpacity = tiledImage.opacity;
 
-        this.drawTileBuffer( composite.__tileBuffer, [a, b, c, d, e, f], [sx, sy, sw, sh] );
+        this.drawTileBuffer( composite.__tileBuffer, {a, b, c, d, e, f}, { x: sx, y: sy, width: sw, height: sh } );
 
         //TODO: where to move these ??? needed for demo only yet
         tiledImage.lastDrawnLevel = composite.level;

@@ -212,42 +212,18 @@ class WebGLTileBuffer {
     }
 
     clear() {
-        // const gl = this.gl;
-        // gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
-        // gl.clearColor(0, 0, 0, 0);
-        // gl.clear(gl.COLOR_BUFFER_BIT);
-        // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        // no need to clear pixels
     }
 
-    clearRect(dx, dy, dw, dh) {
-        // const gl = this.gl;
-        // gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
-        // gl.enable(gl.SCISSOR_TEST);
-        // gl.scissor(dx, dy, dw, dh);
-        // gl.clearColor(0, 0, 0, 0);
-        // gl.clear(gl.COLOR_BUFFER_BIT);
-        // gl.disable(gl.SCISSOR_TEST);
-        // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    clearRect(rect) {
+        // no need to clear pixels
     }
 
-    fillRect(dx, dy, dw, dh, fillStyle) {
+    drawTileImage(image, srcRect, destRect, debugInfo) {
+
         const gl = this.gl;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
-
-        gl.enable(gl.SCISSOR_TEST);
-        gl.scissor(dx, dy, dw, dh);
-
-        // fillStyle is CSS color → convert to RGBA
-        const [r, g, b, a] = WebGLTileBuffer.parseColor(fillStyle);
-        gl.clearColor(r, g, b, a);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
-        gl.disable(gl.SCISSOR_TEST);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    }
-
-    drawTileImage(image, {sx, sy, sw, sh}, {dx, dy, dw, dh}, debugInfo) {
-        const gl = this.gl;
+        const [sx, sy, sw, sh] = [srcRect.x, srcRect.y, srcRect.width, srcRect.height];
+        const [dx, dy, dw, dh] = [destRect.x, destRect.y, destRect.width, destRect.height];
 
         let img = image;
 
@@ -269,7 +245,7 @@ class WebGLTileBuffer {
                 0, 0, dw, dh   // integer scaling
             );
             if (debugInfo) {
-                $.Utils.drawDebugInfoOnCanvas( tctx, { dx: 0, dy: 0, dw, dh }, debugInfo );
+                $.Utils.drawDebugInfoOnCanvas( tctx, { x: 0, y: 0, width: dw, height: dh }, debugInfo );
             }
 
         }
@@ -293,7 +269,7 @@ class WebGLTileBuffer {
                 throw err; // rethrow if it's not CORS
             }
         }
-        // //debug:  (get Error is extremely slow !!!!)
+        // //debug:  (getError is extremely slow !!!!)
         // const err = gl.getError();
         // void err;
 
@@ -452,8 +428,8 @@ $.WebGLDrawer = class extends OpenSeadragon.Drawer{
 
     drawTileBuffer(buffer, affine, srcRect) {
         const gl = this.gl;
-        const [sx, sy, sw, sh] = srcRect;          // buffer pixel coords
-        const [a, b, c, d, e, f] = affine;         // buffer → canvas
+        const [sx, sy, sw, sh] = [srcRect.x, srcRect.y, srcRect.width, srcRect.height];     // source rect in buffer coordinates
+        const {a, b, c, d, e, f} = affine;                                                  // buffer → canvas
 
         gl.useProgram(this.program);
 

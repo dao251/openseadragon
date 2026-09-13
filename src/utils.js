@@ -381,11 +381,12 @@ $.Utils = class {
     //      level   - at which level we are drawing (target tile)
     //      tile    - what we are drawing (actual tile)
     //      flipped - is image flipped ( not viewport! )
-    static drawDebugInfoOnCanvas (ctx, {dx, dy, dw, dh}, debugInfo ){
-        const {level, tile, flipped } = debugInfo;
+    static drawDebugInfoOnCanvas (ctx, destRect, debugInfo){
+        const {level, tile, flipped, color } = debugInfo;
+        const [ dx, dy, dw, dh ] = [destRect.x, destRect.y, destRect.width, destRect.height];
 
         ctx.save();
-            ctx.strokeStyle = ctx.fillStyle = "rgba(255, 63, 255)";
+            ctx.strokeStyle = ctx.fillStyle = color;
 
             // use larger font for lower-res tiles
             const fontSize = 20 + (level - (tile ? tile.level : -1)) * 8;

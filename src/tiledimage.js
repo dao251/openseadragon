@@ -2376,8 +2376,7 @@ class Composite {
         const tiledImage = obj.tiledImage;
         this.__tiledImage = tiledImage;
 
-        // ------ create tileBuffer:
-        // this.__tileBuffer = tiledImage?.viewer.drawer.newTileBuffer( bufferSize );
+        // this creates tileBuffer
         this.ensureBufferSize();
 
         this.imgImageRect = obj.imgImageRect;               // Rect: tiledImage in image coordinates (highest-res level)
@@ -2422,22 +2421,37 @@ class Composite {
         return this.tilCompositeRect.width * this.tilCompositeRect.height;
     }
 
-    drawPlaceholder (x, y) {
+    drawPlaceholder( x, y, debugInfo ) {
+        const tiledImage = this.__tiledImage;
         const buffer = this.__tileBuffer;
+
         const dw = this.tileWidth;
         const dh = this.tileHeight;
         const dx = x * dw;
         const dy = y * dh;
 
-        const tiledImage = this.__tiledImage;
+        // 1. Reuse a static temporary canvas
+        const canvas = Composite._tmpCanvas || (Composite._tmpCanvas = $.Utils.newOffscreenCanvas());
+        canvas.width = dw;
+        canvas.height = dh;
+        const ctx = canvas.getContext('2d');
+
         const fillStyle = ( typeof tiledImage.placeholderFillStyle === "function" ?
-                    // tiledImage.placeholderFillStyle(tiledImage, ctx) :                // TODO: rewrite to be canvas independent !!!
-                    tiledImage.placeholderFillStyle(tiledImage, null) :                  // TODO: dirty stub !!!
+                    tiledImage.placeholderFillStyle(tiledImage, ctx) :                // TODO: rewrite to be canvas independent !!!
+                    // tiledImage.placeholderFillStyle(tiledImage, null) :                  // TODO: dirty stub !!!
                     tiledImage.placeholderFillStyle
                 );
+
         if (fillStyle) {
-            buffer.clearRect(dx, dy, dw, dh);  // in case something(?) left on the canvas(???) AND fillStyle has transparency
-            buffer.fillRect(dx, dy, dw, dh, fillStyle);
+            ctx.fillStyle = fillStyle;
+            const [ sx, sy, sw, sh ] = [ 0, 0, dw, dh ];
+            ctx.fillRect( sx, sy, sw, sh );
+            buffer.drawTileImage(
+                canvas,
+                { x: sx, y: sy, width: sw, height: sh },  // source rect
+                { x: dx, y: dy, width: dw, height: dh },  // destination rect
+                debugInfo
+            );
         }
     }
 
@@ -2473,14 +2487,20 @@ class Composite {
             }
         }
 
-        // Destination rectangle
-        const dx = x * tileWidth - this.lyrCompositeRect.x;
-        const dy = y * tileHeight - this.lyrCompositeRect.y;
-        const dw = tileWidth;
-        const dh = tileHeight;
+        // Source rectangle
+        const srcRect = { x: sx, y: sy, width: sw, height: sh };
 
-        buffer.clearRect(dx, dy, dw, dh);  // must clear first as we're not clearing the entire canvas
-        buffer.drawTileImage( tile.getImage(), {sx, sy, sw, sh}, {dx, dy, dw, dh}, debugInfo );
+        // Destination rectangle
+        const destRect = {
+            x: x * tileWidth - this.lyrCompositeRect.x,
+            y: y * tileHeight - this.lyrCompositeRect.y,
+            width: tileWidth,
+            height: tileWidth
+        };
+
+        // buffer.clearRect(dx, dy, dw, dh);  // must clear first as we're not clearing the entire canvas
+        buffer.clearRect( destRect );  // must clear first as we're not clearing the entire canvas
+        buffer.drawTileImage( tile.getImage(), srcRect, destRect, debugInfo );
 
         return tile;
     }
@@ -2489,15 +2509,34 @@ class Composite {
         const tiledImage = this.__tiledImage;
         const minLevel = tiledImage.source.minLevel;
         const drawnTile = this.drawnTiles.get(x, y);
+
+        let debugInfo;
+
+        if(tiledImage.debugMode){
+            const viewer = tiledImage.viewer;
+            const drawer = viewer.drawer;
+            const colorIndex = viewer.world.getIndexOfItem(tiledImage) % drawer.debugGridColor.length;
+            const color = drawer.debugGridColor[colorIndex];
+
+            debugInfo = {
+                level: this.level,
+                x, y,
+                flipped: tiledImage.flipped,
+                color,
+            };
+        }
+
         for( let l = this.level; l >= minLevel; l-- ){
             const shift = this.level - l;
             const tile = tiledImage.getTile( l, x >> shift, y >> shift );
             if ( drawnTile?.level === tile.level ){
                 return false;
             }
+            //TODO: handle non-existing tiles more accurate ?
             if (tile.exists && tile.loaded){
-                //TODO: handle non-existing tiles more accurate ?
-                const debugInfo = tiledImage.debugMode ? {level: this.level, x, y, tile, flipped: tiledImage.flipped} : null;
+
+                debugInfo && (debugInfo.tile = tile);  //eslint-disable-line
+
                 this.drawTile(x, y, tile, debugInfo );  // debugInfo must be drawn together with the tile to avoid induced bugs !!!!
                 this.drawnTiles.set( x, y, tile);
 
@@ -2509,8 +2548,9 @@ class Composite {
                 return true;
             }
         }
+
         if ( drawnTile !== null ){
-            this.drawPlaceholder(x, y);
+            this.drawPlaceholder( x, y, debugInfo );
             this.drawnTiles.set( x, y, null);
             return true;
         }
@@ -2547,7 +2587,7 @@ class Composite {
 
         tilesToLoad = [...tilesToLoad]
             .sort((a, b) => {
-                // sort by loading flag
+                // sort by loading flag ( true first )
                 if (a.loading !== b.loading) {
                     return a.loading ? -1 : 1;
                 }
@@ -2555,7 +2595,7 @@ class Composite {
                 if (a.loading && b.loading) {
                     return 0;
                 }
-                // sort by level
+                // sort by level (ascending)
                 if (a.level !== b.level) {
                     return a.level - b.level;
                 }
@@ -2573,9 +2613,8 @@ class Composite {
 
                 return da - db;
             })
-            // 6 images is HTTP 1.1 limit per origin, not using maxTilesPerFrame
-            // do not add tiles to ImageLoaders while there are 6 loading
-            // TODO: review ImageLoader(?) (for smoother fast panning)
+            // 6 images is HTTP 1.1 limit per origin - a good option to replace maxTilesPerFrame yet.
+            // do not add tiles to ImageLoaders while there are 6 "loading" from this tiledImage
             .slice(0, 6)
             .filter((tile => !tile.loading));
 

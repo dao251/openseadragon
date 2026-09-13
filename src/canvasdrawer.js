@@ -65,24 +65,19 @@
             ctx.imageSmoothingEnabled = false;
         }
 
-        clearRect(dx, dy, dw, dh){
-            this.context.clearRect( dx, dy, dw, dh );
+        clearRect(rect){
+            this.context.clearRect( rect.x, rect.y, rect.width, rect.height );
         }
 
-        fillRect(dx, dy, dw, dh, fillStyle){
+        drawTileImage( image, srcRect, destRect, debugInfo ){
+            // const {sx, sy, sw, sh} = srcRect;
             const ctx = this.context;
-            if (fillStyle) {
-                ctx.fillStyle = fillStyle;
-                ctx.clearRect(dx, dy, dw, dh);  // in case something(?) left on the canvas(???) AND fillStyle has transparency
-                ctx.fillRect(dx, dy, dw, dh);
-            }
-        }
-
-        drawTileImage( image, {sx, sy, sw, sh}, {dx, dy, dw, dh}, debugInfo ){
-            const ctx = this.context;
-            ctx.drawImage( image, sx, sy, sw, sh, dx, dy, dw, dh );
+            ctx.drawImage( image,
+                srcRect.x, srcRect.y, srcRect.width, srcRect.height,
+                destRect.x, destRect.y, destRect.width, destRect.height
+            );
             if (debugInfo) {
-                $.Utils.drawDebugInfoOnCanvas(ctx, {dx, dy, dw, dh}, debugInfo);
+                $.Utils.drawDebugInfoOnCanvas(ctx, destRect, debugInfo);
             }
         }
 
@@ -116,8 +111,9 @@ $.CanvasDrawer = class extends OpenSeadragon.Drawer{
     }
 
     drawTileBuffer( buffer, affine, srcRect ){
-        const [a, b, c, d, e, f] = affine;
-        const [sx, sy, sw, sh] =  srcRect;
+        const [sx, sy, sw, sh] = [srcRect.x, srcRect.y, srcRect.width, srcRect.height];     // source rect in buffer coordinates
+        const {a, b, c, d, e, f} = affine;                                                  // buffer → canvas
+
         const ctx = this.context;
 
         ctx.imageSmoothingEnabled = this._imageSmoothingEnabled;
