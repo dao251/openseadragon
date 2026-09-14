@@ -201,7 +201,15 @@
                 // tileSource: { type:"image", url:"../../test/data/BBlue.png", tileWidth: 131, tileHeight: 251 },
                 // demoClip: new OpenSeadragon.Rect( 200, 200, 500, 500),
                 text: "Simple Image: Mona Lisa",
-                tileSource: { type:"image", url:"../../test/data/MonaLisa.jpg", tileWidth: 251, tileHeight: 367 },
+                tileSource: { type:"image", url:"../../test/data/MonaLisa.jpg" , buildPyramid: true, tileWidth: 251, tileHeight: 367 },
+            },
+            {
+                tileSource: [
+                    { type: "image", url: "../../test/data/red_100.png"},
+                    { type: "image", url: "../../test/data/green_100.png"},
+                    { type: "image", url: "../../test/data/blue_50.png"},
+                ],
+                text: "Stack with transparency: 50% B over 100% G over 100% R ",
             },
 
 
@@ -237,12 +245,12 @@
                         fetchOptions:{},
                     }
                 },
-                {   version: "OSD 6.1.0 'canvas'",
-                    url: "../../.ver/OSD.6.1.0/openseadragon.js",
+                {   version: "OSD 6.1.1 'canvas'",
+                    url: "../../.ver/OSD.6.1.1/openseadragon.js",
                     viewerOptions: { drawer:'canvas' },
                 },
-                {   version: "OSD 6.1.0 'webgl'",
-                    url: "../../.ver/OSD.6.1.0/openseadragon.js",
+                {   version: "OSD 6.1.1 'webgl'",
+                    url: "../../.ver/OSD.6.1.1/openseadragon.js",
                     viewerOptions: { drawer:'webgl', loadTilesWithAjax: true },
                 },
                 {   version: "OSD 5.0.1 'canvas'",

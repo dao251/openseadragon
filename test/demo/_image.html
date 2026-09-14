@@ -14,29 +14,26 @@
     </style>
 </head>
 <body>
-    <div>
-        <p>Big JPEG image - 90MB, 80MP (7479x11146 px)</p>
-        <p>Image fetching takes circa 2 sec (from localhost). Full POT Pyramide building takes circa 1 sec.</p>
+    <pre>
+        Big JPEG image - 90MB, 80MP (7479x11146 px)
+    </pre>
+    <div style="display: flex;">
+        <div id="contentDiv" class="openseadragon1"></div>
+        <pre id="out"></pre>
     </div>
-    <div id="contentDiv" class="openseadragon1"></div>
-    <pre id="out"></pre>
-
     <script id="code" type="text/javascript">
 
         const url = "../../test/data/MonaLisa.jpg";
-        // var tileSource = new OpenSeadragon.ImageTileSource ( {url: url, buildPyramid: false, tileSize: 256} );
-        var tileSource = new OpenSeadragon.ImageTileSource ( {url: url, buildPyramid: true} );
+        var tileSource = new OpenSeadragon.ImageTileSource ( {url: url, buildPyramid: true, tileWidth: 137, tileHeight: 251} );
 
         var viewer = OpenSeadragon({
-            drawer: 'drawer',
-            // drawer: 'canvas',
+            drawer: 'canvas',
             id: "contentDiv",
             prefixUrl: "../../build/openseadragon/images/",
             showRotationControl: true,
             rotationIncrement: 22.5,
             minZoomLevel: 0.01,
             maxZoomPixelRatio: 2.00,
-            maxTilesPerFrame: 100,
             tileSources:  tileSource,
             debugMode: true,
         });
