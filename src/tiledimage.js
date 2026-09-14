@@ -2573,7 +2573,7 @@ class Composite {
             for(let y = tilCompositeRect.y; y < tilCompositeRect.y + tilCompositeRect.height; y++ ){
                 const drawnTile = this.drawnTiles.get(x, y);
                 const drawnLevel = drawnTile ? drawnTile.level : -1;
-                for( let l = level; l > Math.max(drawnLevel, minLevel); l--){
+                for( let l = level; l >= Math.max(drawnLevel, minLevel); l--){
                     const shift = level - l;
                     const tile = this.__tiledImage.getTile( l, x >> shift, y >> shift );
                     if( tile.exists && !tile.loaded ){
