@@ -2437,8 +2437,7 @@ class Composite {
         const ctx = canvas.getContext('2d');
 
         const fillStyle = ( typeof tiledImage.placeholderFillStyle === "function" ?
-                    tiledImage.placeholderFillStyle(tiledImage, ctx) :                // TODO: rewrite to be canvas independent !!!
-                    // tiledImage.placeholderFillStyle(tiledImage, null) :                  // TODO: dirty stub !!!
+                    tiledImage.placeholderFillStyle(tiledImage, ctx) :
                     tiledImage.placeholderFillStyle
                 );
 
@@ -2495,10 +2494,9 @@ class Composite {
             x: x * tileWidth - this.lyrCompositeRect.x,
             y: y * tileHeight - this.lyrCompositeRect.y,
             width: tileWidth,
-            height: tileWidth
+            height: tileHeight
         };
 
-        // buffer.clearRect(dx, dy, dw, dh);  // must clear first as we're not clearing the entire canvas
         buffer.clearRect( destRect );  // must clear first as we're not clearing the entire canvas
         buffer.drawTileImage( tile.getImage(), srcRect, destRect, debugInfo );
 

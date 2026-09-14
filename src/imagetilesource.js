@@ -38,7 +38,6 @@ $.ImageTileSource = class extends $.TileSource {
     constructor({url, buildPyramid = true, tileSize = 256, tileWidth, tileHeight }){
         super(url);
         this.__buildPyramid = buildPyramid;
-        this.__tileSize = tileSize;
         this.__tileWidth = (tileWidth ? tileWidth : tileSize);
         this.__tileHeight = (tileHeight ? tileHeight : tileSize);
         this.ready = false;
@@ -54,7 +53,6 @@ $.ImageTileSource = class extends $.TileSource {
 
     getTileImage(level, x, y){
         const image = this.__levels[level];
-        // const tileSize = this.__tileSize;
         const tileWidth = this.__tileWidth;
         const tileHeight = this.__tileHeight;
 
@@ -117,7 +115,6 @@ $.ImageTileSource = class extends $.TileSource {
         // Building the pyramid
         //   actually not tiled pyramid, but simple image pyramid
         //   tiling is done by getTileImage()
-        // const tileSize = this.__tileSize;
         this._tileWidth  = this.__tileWidth;
         this._tileHeight = this.__tileHeight;
         this.tileOverlap = 0;
