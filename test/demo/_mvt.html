@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MVT TileSource Demo</title>
+    <script type="text/javascript" src='../../build/openseadragon/openseadragon.min.js'></script>
+    <style type="text/css">
+        html, body{
+            font-family: monospace;
+        }
+        .openseadragon1 {
+            width: 1024px;
+            height: 768px;
+            background-color: #e6f4ff;
+        }
+
+    </style>
+</head>
+<body>
+    <div>
+        Mapbox Vector Tile (MVT) Demo (<a href="#out">code below</a>)
+        <br>MVTs downloaded from https://api.mapbox.com/v4/mapbox.country-boundaries-v1/${z}/${x}/${y}.mvt?access_token=${your_API_key}
+        <br><a href="https://github.com/dao251/osd-demo">this repo</a>
+    </div>
+    <div style="display: flex;">
+        <div id="world" class="openseadragon1"></div>
+    </div>
+    <pre id="out"></pre>
+
+    <script id="code" type="module">
+    import { PbfReader } from "./pbf-wrapper.js"
+    import { VectorTile } from 'https://cdn.jsdelivr.net/npm/@mapbox/vector-tile@3.0.0/+esm'
+
+    class MVTTileSource extends OpenSeadragon.TileSource{
+        #tileSize; #minLevel; #baseURL
+        #colors = ["#4285F4","#DB4437","#F4B400","#0F9D58","#AB47BC","#00ACC1","#FF7043","#8E24AA"]
+
+        constructor({ baseURL, minLevel, maxLevel }){
+            const [tileSize, imageSize] = [2**minLevel, 2**maxLevel]
+            super({ height: imageSize, width: imageSize, tileSize: tileSize, minLevel, maxLevel})
+            this.#tileSize = tileSize
+            this.#minLevel = minLevel
+            this.#baseURL = baseURL
+        }
+
+        async getTileImage(level, x, y) {
+
+            const url = `${this.#baseURL}/${level-this.#minLevel}/${x}/${y}.mvt`
+            const resp = await fetch(url)
+            if (!resp.ok) throw new Error(`Tile fetch failed: ${resp.status}`)
+
+            const arrayBuffer = await resp.arrayBuffer()
+            const tile = new VectorTile (new Pbf.PbfReader(arrayBuffer))
+
+            const ctx = document.createElement('canvas').getContext("2d")
+            ctx.canvas.width = ctx.canvas.height = this.#tileSize
+
+            for (const layerName in tile.layers) {
+                const layer = tile.layers[layerName];
+                for (let i = 0; i < layer.length; i++)
+                    this.#drawFeature(ctx, layer.feature(i))
+            }
+
+            return ctx.canvas
+        }
+
+        #drawFeature(ctx, feature) {
+            const geom = feature.loadGeometry()
+            const scale = ctx.canvas.width / (feature.extent || 4096)
+
+            ctx.save()
+                ctx.scale( scale, scale )
+                ctx.beginPath()
+                for (const line of geom) {
+                    ctx.moveTo(line[0].x, line[0].y)
+                    for (let i = 1; i < line.length; i++)
+                        ctx.lineTo(line[i].x, line[i].y);
+                }
+                if (feature.type === 3) {                                   // only draw polygons for the demo
+                    const color = feature?.properties?.color_group
+                    const worldview = feature?.properties?.worldview
+                    if (color !== undefined && (worldview === "all" || worldview.includes("US"))){
+                        ctx.fillStyle = this.#colors[(color-1) % 8]
+                        ctx.fill()
+                    }
+                }
+            ctx.restore()
+        }
+    }
+
+    OpenSeadragon({
+        id: "world",
+        prefixUrl: "../../build/openseadragon/images/",
+        drawer: 'webgl',
+        showRotationControl: true,
+        rotationIncrement: 22.5,
+        tileSources: new MVTTileSource({ baseURL: "../../test/data/mvt", minLevel: 10, maxLevel: 15 }),
+    })
+
+    </script>
+    <script>
+        document.getElementById("out").textContent =
+            document.getElementById("code").textContent;
+    </script>
+</body>
+</html>
