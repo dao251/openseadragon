@@ -159,6 +159,13 @@ class WebGLTileBuffer {
     }
 
     constructor(gl, size) {
+
+        //TODO: check/develop error propagation and handling !
+        // const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+        // if (size > maxTextureSize) {
+        //     throw new Error( `WebGLDrawer: Texture size ${size} exceeds MAX_TEXTURE_SIZE (${maxTextureSize})`);
+        // }
+
         this.gl = gl;
         this.__size = size;
 
@@ -313,7 +320,7 @@ class WebGLTileBuffer {
     * @param {Number} [options.debugGridColor] - See debugGridColor in {@link OpenSeadragon.Options} for details.
     */
 
-$.WebGLDrawer = class extends OpenSeadragon.Drawer{
+class WebGLDrawer extends OpenSeadragon.Drawer{
 
     constructor(options){
         super(options);
@@ -321,6 +328,15 @@ $.WebGLDrawer = class extends OpenSeadragon.Drawer{
 
         this.initProgram();
         this.initQuadBuffers();
+    }
+
+    static isSupported(){
+        try {
+            const canvas = $.Utils.newOffscreenCanvas(1, 1);
+            return !!canvas.getContext('webgl');
+        } catch (error) {
+            return false;
+        }
     }
 
     initProgram() {
@@ -506,6 +522,8 @@ $.WebGLDrawer = class extends OpenSeadragon.Drawer{
     getType(){
         return 'webgl';
     }
-};
+}
+
+$.WebGLDrawer = WebGLDrawer;
 
 }( OpenSeadragon ));

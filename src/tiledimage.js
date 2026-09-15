@@ -2412,7 +2412,9 @@ class Composite {
             return false;
         }
 
+        this.__tileBuffer?.destroy();
         this.__tileBuffer = tiledImage.viewer.drawer.newTileBuffer( bufferSize );
+
         this.clear();
         return true;
     }
@@ -2636,6 +2638,10 @@ class Composite {
         return (this.updated = updated);
     }
 
+    destroy(){
+        this.__tileBuffer?.destroy();
+    }
+
 } // end of Composite class
 
 $.TiledImage.prototype.getTile = function(level, x, y){
@@ -2678,6 +2684,7 @@ $.TiledImage.prototype.prepareComposite = function() {
 
     let drawArea = this.getDrawArea();
     if (!drawArea){
+        this.__composite?.destroy();
         return (this.__composite = undefined);
     }
 

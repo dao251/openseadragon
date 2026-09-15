@@ -54,10 +54,6 @@ $.Drawer = class extends OpenSeadragon.DrawerBase{
         return 'drawer';
     }
 
-    static isSupported(){
-        return true;        // DAO251: all modern browsers support canvas
-    }
-
     /**
      * create the HTML element (e.g. canvas, div) that the image will be drawn into
      * @returns {Element} the canvas to draw into

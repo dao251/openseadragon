@@ -49,7 +49,7 @@
         }
 
         destroy(){
-            this.size = 0;
+            this.__size = 0;
             delete this.context;
         }
 
@@ -94,11 +94,15 @@
  * @param {Number} [options.debugGridColor] - See debugGridColor in {@link OpenSeadragon.Options} for details.
  */
 
-$.CanvasDrawer = class extends OpenSeadragon.Drawer{
+class CanvasDrawer extends OpenSeadragon.Drawer{
 
     constructor(options){
         super(options);
         this.context = this.canvas.getContext( '2d' );
+    }
+
+    static isSupported(){
+        return true;        // all modern browsers support canvas
     }
 
     clear( width, height ){
@@ -135,5 +139,8 @@ $.CanvasDrawer = class extends OpenSeadragon.Drawer{
     getType(){
         return 'canvas';
     }
-};
+}
+
+$.CanvasDrawer = CanvasDrawer;
+
 }( OpenSeadragon ));
