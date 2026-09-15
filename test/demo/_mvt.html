@@ -27,7 +27,7 @@
     <pre id="out"></pre>
 
     <script id="code" type="module">
-    import { PbfReader } from "./pbf-wrapper.js"
+    import { PbfReader }  from "https://cdn.jsdelivr.net/npm/pbf/+esm"
     import { VectorTile } from 'https://cdn.jsdelivr.net/npm/@mapbox/vector-tile@3.0.0/+esm'
 
     class MVTTileSource extends OpenSeadragon.TileSource{
@@ -49,7 +49,7 @@
             if (!resp.ok) throw new Error(`Tile fetch failed: ${resp.status}`)
 
             const arrayBuffer = await resp.arrayBuffer()
-            const tile = new VectorTile (new Pbf.PbfReader(arrayBuffer))
+            const tile = new VectorTile (new PbfReader(arrayBuffer))
 
             const ctx = document.createElement('canvas').getContext("2d")
             ctx.canvas.width = ctx.canvas.height = this.#tileSize
