@@ -262,6 +262,9 @@ $.Viewer = function( options ) {
     this.element              = this.element || document.getElementById( this.id );
     this.canvas               = $.makeNeutralElement( "div" );
 
+    $.elementMetricsObserver.add(this.container);
+    $.elementMetricsObserver.add(this.canvas);
+
     this.canvas.className = "openseadragon-canvas";
     (function( style ){
         style.width    = "100%";
@@ -837,6 +840,9 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
          * @property {?Object} userData - Arbitrary subscriber-defined object.
          */
         this.raiseEvent( 'before-destroy' );
+
+        $.elementMetricsObserver.remove(this.container);
+        $.elementMetricsObserver.remove(this.canvas);
 
         this.close();
 

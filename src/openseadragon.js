@@ -1584,6 +1584,58 @@ function OpenSeadragon( options ){
             return element;
         },
 
+        elementMetricsObserver: new class {
+            constructor() {
+                this.elements = new Set();
+                const updateHandler = entries => entries.forEach(e => this.update(e.target));
+                // ResizeObserver -> size changes
+                this.ro = new ResizeObserver(updateHandler);
+                // IntersectionObserver -> position changes
+                this.io = new IntersectionObserver(updateHandler);
+            }
+
+            // Cache geometry
+            update(el) {
+                // cache bounding rect ( for $.getElementOffset )
+                const rect = el.getBoundingClientRect();
+                el._boundingClientRect = { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+                // cache client dimensions ( for $.getElementSize )
+                el._clientDimensions = {x: el.clientWidth, y: el.clientHeight};
+            }
+
+            // add element to the observer
+            add(el) {
+                if (this.elements.has(el)) return;      //eslint-disable-line
+
+                this.elements.add(el);
+                this.ro.observe(el);
+                this.io.observe(el);
+
+                this.update(el); // initial cache
+            }
+
+            remove(el) {
+                if (!this.elements.has(el)) return;    //eslint-disable-line
+
+                // clear cached values
+                el._boundingClientRect = el._clientDimensions = undefined;
+
+                this.elements.delete(el);
+
+                this.ro.unobserve(el);
+                this.io.unobserve(el);
+            }
+
+            // // No disconnect neeed as it's a Singleton
+            // disconnect() {
+            //     for (const el of this.elements) { // must use the loop to clear cached values
+            //         this.remove(el);
+            //     }
+            //     this.ro.disconnect();
+            //     this.io.disconnect();
+            // }
+        }(),
+
 
         /**
          * Determines the position of the upper-left corner of the element.
@@ -1592,29 +1644,7 @@ function OpenSeadragon( options ){
          * @returns {OpenSeadragon.Point} - the position of the upper left corner of the element.
          */
         getElementPosition: function( element ) {
-            var result = new $.Point(),
-                isFixed,
-                offsetParent;
-
-            element      = $.getElement( element );
-            isFixed      = $.getElementStyle( element ).position === "fixed";
-            offsetParent = getOffsetParent( element, isFixed );
-
-            while ( offsetParent ) {
-
-                result.x += element.offsetLeft;
-                result.y += element.offsetTop;
-
-                if ( isFixed ) {
-                    result = result.plus( $.getPageScroll() );
-                }
-
-                element = offsetParent;
-                isFixed = $.getElementStyle( element ).position === "fixed";
-                offsetParent = getOffsetParent( element, isFixed );
-            }
-
-            return result;
+            return $.getElementOffset(element);       // in modern browsers there is no differnce between the two.
         },
 
 
@@ -1624,33 +1654,16 @@ function OpenSeadragon( options ){
          * @param {Element|String} element - the element we want the position for.
          * @returns {OpenSeadragon.Point} - the position of the upper left corner of the element adjusted for current page and/or element scroll.
          */
-        getElementOffset: function( element ) {
-            element = $.getElement( element );
+        getElementOffset: function(element) {
+            const el = $.getElement( element );
 
-            var doc = element && element.ownerDocument,
-                docElement,
-                win,
-                boundingRect = { top: 0, left: 0 };
+            if (!el) return new Point();                                        //eslint-disable-line
 
-            if ( !doc ) {
-                return new $.Point();
-            }
-
-            docElement = doc.documentElement;
-
-            if ( typeof element.getBoundingClientRect !== typeof undefined ) {
-                boundingRect = element.getBoundingClientRect();
-            }
-
-            win = ( doc === doc.window ) ?
-                doc :
-                ( doc.nodeType === 9 ) ?
-                    doc.defaultView || doc.parentWindow :
-                    false;
+            const rect = el._boundingClientRect || el.getBoundingClientRect();  // use cached values if observed
 
             return new $.Point(
-                boundingRect.left + ( win.pageXOffset || docElement.scrollLeft ) - ( docElement.clientLeft || 0 ),
-                boundingRect.top + ( win.pageYOffset || docElement.scrollTop ) - ( docElement.clientTop || 0 )
+                rect.x + window.scrollX,
+                rect.y + window.scrollY
             );
         },
 
@@ -1662,12 +1675,11 @@ function OpenSeadragon( options ){
          * @returns {OpenSeadragon.Point}
          */
         getElementSize: function( element ) {
-            element = $.getElement( element );
+            const el = $.getElement( element );
 
-            return new $.Point(
-                element.clientWidth,
-                element.clientHeight
-            );
+            return el._clientDimensions ?
+                new $.Point( el._clientDimensions.x, el._clientDimensions.y ) : // use cached values if observed
+                new $.Point( el.clientWidth, el.clientHeight );
         },
 
 
@@ -2892,13 +2904,13 @@ function OpenSeadragon( options ){
      * @param {Boolean} [isFixed]
      * @returns {Element}
      */
-    function getOffsetParent( element, isFixed ) {
-        if ( isFixed && element !== document.body ) {
-            return document.body;
-        } else {
-            return element.offsetParent;
-        }
-    }
+    // function getOffsetParent( element, isFixed ) {
+    //     if ( isFixed && element !== document.body ) {
+    //         return document.body;
+    //     } else {
+    //         return element.offsetParent;
+    //     }
+    // }
 
 }(OpenSeadragon));
 
