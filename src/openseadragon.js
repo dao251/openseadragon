@@ -1657,7 +1657,7 @@ function OpenSeadragon( options ){
         getElementOffset: function(element) {
             const el = $.getElement( element );
 
-            if (!el) return new Point();                                        //eslint-disable-line
+            if (!el) return new $.Point();                                      //eslint-disable-line
 
             const rect = el._boundingClientRect || el.getBoundingClientRect();  // use cached values if observed
 
